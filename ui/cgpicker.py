@@ -5,9 +5,11 @@ from PyQt5.QtWidgets import QMainWindow, QFileDialog, qApp
 from PyQt5.QtCore import Qt
 from template.ui_cgpicker import Ui_CGPicker
 from ui.imageviewer import ImageViewer
+from database import data
 
 
 class CGPicker(Ui_CGPicker):
+
 	def __init__(self, *args, **kwargs):
 		self.root = QMainWindow(*args, **kwargs)
 		self.setupUi(self.root)
@@ -23,6 +25,8 @@ class CGPicker(Ui_CGPicker):
 		from tools.picker import pickCGToTmp
 		CGPath = QFileDialog.getExistingDirectory(self.root, "choose directory")
 		pickCGToTmp(CGPath)
+		data.loadDataFromTmp()
+		self.showScene()
 
 	def collectPickToCG(self):
 		from tools.collector import collectPickToCG
@@ -39,7 +43,6 @@ class CGPicker(Ui_CGPicker):
 			qApp.quit()
 		else:
 			event.ignore()
-		
 
 	def show(self):
 		self.root.show()

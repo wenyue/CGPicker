@@ -8,7 +8,9 @@ from template.ui_imageviewer import Ui_ImageViewer
 from ui.face import Face
 from database import data
 
+
 class ImageViewer(Ui_ImageViewer):
+
 	def __init__(self, *args, **kwargs):
 		self.root = QWidget(*args, **kwargs)
 		self.setupUi(self.root)
@@ -16,7 +18,7 @@ class ImageViewer(Ui_ImageViewer):
 		self.img.paintEvent = self.paintEvent
 		self.faceLayout = QHBoxLayout(self.faces)
 		self.star.setVisible(False)
-		
+
 		self._faceCtrls = []
 		self._sidx = 0
 		self._aidx = 0
@@ -42,16 +44,26 @@ class ImageViewer(Ui_ImageViewer):
 		return action.getImage(self._iidx) if action else None
 
 	def showPrevPick(self):
-		pass
+		image = self.curImage
+		pick = self.curPick
+		scene = self.curScene
+		if None in (image, pick, scene):
+			return
+		pickImage = pick.findNearestImage(image, -1)
+		self._aidx, self._iidx = scene.indexImage(pickImage)
 
 	def showNextPick(self):
-		pass
+		image = self.curImage
+		pick = self.curPick
+		scene = self.curScene
+		if None in (image, pick, scene):
+			return
+		pickImage = pick.findNearestImage(image, 1)
+		self._aidx, self._iidx = scene.indexImage(pickImage)
 
 	def showScene(self):
 		self._aidx = 0
-		self._iidx = 0
-		self.updateFaceCtrls()
-		self.updateImageCtrl()
+		self.showAction()
 
 	def showPrevScene(self):
 		self._sidx = data.normalizeSceneIdx(self._sidx - 1)
@@ -71,19 +83,24 @@ class ImageViewer(Ui_ImageViewer):
 		self._iidx = action.normalizeImageIdx(self._iidx + 1) if action else 0
 		self.updateImageCtrl()
 
-	def showPrevAction(self):
-		scene = self.curScene
-		self._aidx = scene.normalizeActionIdx(self._aidx - 1, loop = True) if scene else 0
-		self._iidx = 0
+	def showAction(self):
+		action = self.curAction
+		pick = self.curPick
+		self._iidx = next(
+			(idx for idx, image in enumerate(action.getImages()) if pick.isInPick(image)),
+			0) if action and pick else 0
 		self.updateImageCtrl()
 		self.updateFaceCtrls()
 
+	def showPrevAction(self):
+		scene = self.curScene
+		self._aidx = scene.normalizeActionIdx(self._aidx - 1, loop=True) if scene else 0
+		self.showAction()
+
 	def showNextAction(self):
 		scene = self.curScene
-		self._aidx = scene.normalizeActionIdx(self._aidx + 1, loop = True) if scene else 0
-		self._iidx = 0
-		self.updateImageCtrl()
-		self.updateFaceCtrls()
+		self._aidx = scene.normalizeActionIdx(self._aidx + 1, loop=True) if scene else 0
+		self.showAction()
 
 	def switchStar(self):
 		pick = self.curPick
@@ -110,7 +127,7 @@ class ImageViewer(Ui_ImageViewer):
 		for fidx, face in enumerate(faces):
 			ctrl = self._faceCtrls[fidx]
 			ctrl.star.setVisible(pick.isInPick(face))
-			
+
 	def updateFaceCtrls(self):
 		self.clearFaceCtrls()
 		action = self.curAction

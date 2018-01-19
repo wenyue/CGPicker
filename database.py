@@ -7,12 +7,13 @@ from macro import TMP_PATH, PICK_NAME, IMAGE_NAME, FACE_NAME
 
 
 class Action(object):
+
 	def __init__(self, path):
 		self._path = path
 		self._images = []
 		self._faces = []
 		self._load()
-		
+
 	def _load(self):
 		imagepath = os.path.join(self._path, IMAGE_NAME)
 		for filename in os.listdir(imagepath):
@@ -24,8 +25,16 @@ class Action(object):
 			filepath = os.path.join(facePath, filename)
 			self._faces.append(filepath)
 
+	def indexImage(self, image):
+		images = map(os.path.basename, self._images)
+		if image in images:
+			return images.index(image)
+
 	def getImage(self, index):
 		return self._images[index] if index < len(self._images) else None
+
+	def getImages(self):
+		return self._images.copy()
 
 	def getFaces(self):
 		return self._faces.copy()
@@ -34,29 +43,41 @@ class Action(object):
 		if loop:
 			return index % max(len(self._images), 1)
 		else:
-			return min(max(index, 0), len(self._images) - 1)
+			return min(max(index, 0), max(len(self._images) - 1, 0))
 
 
 class Pick(object):
-	def __init__(self, scene, path):
-		self._scene = scene
+
+	def __init__(self, path):
 		self._path = path
-		self._images = set()
+		self._images = []
 		self._load()
 
 	def _load(self):
 		for filename in os.listdir(self._path):
-			self._images.add(filename)
+			self._images.append(filename)
 
-	def isInPick(self, image):
-		image = os.path.basename(image)
+	def findNearestImage(self, imagepath, offset):
+		if offset not in (-1, 1):
+			return None
+		image = os.path.basename(imagepath)
+		if image in self._images:
+			index = self._images.index(image)
+			index = self.normalizeImageIdx(index + offset)
+		else:
+			index = next((index for index, img in enumerate(self._images) if image < img), 0)
+		return index
+
+	def isInPick(self, imagepath):
+		image = os.path.basename(imagepath)
 		return image in self._images
 
 	def addToPick(self, imagepath):
 		image = os.path.basename(imagepath)
 		if image in self._images:
 			return
-		self._images.add(image)
+		self._images.append(image)
+		self._images.sort()
 		util.copy(imagepath, self._path)
 
 	def delFromPick(self, imagepath):
@@ -67,8 +88,15 @@ class Pick(object):
 		pickpath = os.path.join(self._path, image)
 		os.remove(pickpath)
 
+	def normalizeImageIdx(self, index, loop=False):
+		if loop:
+			return index % max(len(self._images), 1)
+		else:
+			return min(max(index, 0), max(len(self._images) - 1, 0))
+
 
 class Scene(object):
+
 	def __init__(self, path):
 		self._path = path
 		self._actions = []
@@ -82,7 +110,7 @@ class Scene(object):
 			actionPath = os.path.join(self._path, dirname)
 			self._actions.append(Action(actionPath))
 		pickPath = os.path.join(self._path, PICK_NAME)
-		self._pick = Pick(self, pickPath)
+		self._pick = Pick(pickPath)
 
 	def getAction(self, index):
 		return self._actions[index] if index < len(self._actions) else None
@@ -90,14 +118,21 @@ class Scene(object):
 	def getPick(self):
 		return self._pick
 
+	def indexImage(self, image):
+		aidx, iidx = next(((aidx, action.indexImage(image))
+						   for aidx, action in enumerate(self._actions)
+						   if action.indexImage(image)), (None, None))
+		return aidx, iidx
+
 	def normalizeActionIdx(self, index, loop=False):
 		if loop:
 			return index % max(len(self._actions), 1)
 		else:
-			return min(max(index, 0), len(self._actions) - 1)
+			return min(max(index, 0), max(len(self._actions) - 1, 0))
 
 
 class Database(object):
+
 	def __init__(self):
 		self._scenes = []
 		self.loadDataFromTmp()
@@ -118,7 +153,7 @@ class Database(object):
 		if loop:
 			return index % max(len(self._scenes), 1)
 		else:
-			return min(max(index, 0), len(self._scenes) - 1)
+			return min(max(index, 0), max(len(self._scenes) - 1, 0))
 
 
 data = Database()
