@@ -34,7 +34,6 @@ def calSimilarity(li, ri):
 def isSameScene(li, ri):
 	if li.size != ri.size:
 		return False
-	print(calSimilarity(li, ri))
 	return calSimilarity(li, ri) > macro.SAME_SCENE_THRESHOLD
 
 
