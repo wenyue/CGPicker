@@ -15,18 +15,22 @@ class Face(Ui_Face):
 		size = pixmap.size()
 		self.root.setMinimumSize(size)
 		self.img.resize(size)
-		pw, ph = size.width(), size.height()
-		sw, sh = self.star.width(), self.star.height()
-		self.star.move(QPoint(pw - sw, ph - sh))
+		self.setEnable(True)
 		self.root.show()
 
 	def setEnable(self, isEnable):
 		if isEnable:
-			w, h = self.img.width(), self.img.height()
-			size = QSize(w * 0.9, h * 0.9)
-			self.img.resize(size)
-			self.img.move(QPoint(w * 0.05, h * 0.05))
-		else:
 			size = self.img.pixmap().size()
 			self.img.resize(size)
 			self.img.move(QPoint(0, 0))
+		else:
+			size = self.img.pixmap().size()
+			w, h = size.width(), size.height()
+			scale = 0.85
+			size = QSize(w * scale, h * scale)
+			self.img.resize(size)
+			self.img.move(QPoint(w * (1 - scale) / 2, h * (1 - scale) / 2))
+		ix, iy = self.img.x(), self.img.y()
+		iw, ih = self.img.width(), self.img.height()
+		sw, sh = self.star.width(), self.star.height()
+		self.star.move(QPoint(ix + iw - sw, iy + ih - sh))

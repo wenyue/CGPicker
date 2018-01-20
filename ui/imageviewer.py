@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from PyQt5.QtWidgets import QWidget, QLabel, QHBoxLayout
-from PyQt5.QtCore import QPoint, QSize, Qt
+from PyQt5.QtCore import QPoint, QSize, Qt, QTimer
 from PyQt5.QtGui import QPixmap
 from template.ui_imageviewer import Ui_ImageViewer
 from ui.face import Face
@@ -17,7 +17,11 @@ class ImageViewer(Ui_ImageViewer):
 		self.root.keyPressEvent = self.keyPressEvent
 		self.img.paintEvent = self.paintEvent
 		self.faceLayout = QHBoxLayout(self.faces)
+		self.faceLayout.setSpacing(0)
 		self.star.setVisible(False)
+		self.home.setVisible(False)
+		self.actionNum.setStyleSheet("font-size:30px")
+		self.starNum.setStyleSheet("font-size:30px")
 
 		self._faceCtrls = []
 		self._sidx = 0
@@ -43,23 +47,42 @@ class ImageViewer(Ui_ImageViewer):
 		action = self.curAction
 		return action.getImage(self._iidx) if action else None
 
+	def isValid(self):
+		return self.curImage is not None
+
 	def showPrevPick(self):
 		image = self.curImage
 		pick = self.curPick
 		scene = self.curScene
-		if None in (image, pick, scene):
+		index, pickImage = pick.findNearestImage(image, -1)
+		if index is None:
 			return
-		pickImage = pick.findNearestImage(image, -1)
+		elif index == 0:
+			self.showHomeFlag()
 		self._aidx, self._iidx = scene.indexImage(pickImage)
+		self.updateImageCtrl()
+		self.updateFaceCtrls()
 
 	def showNextPick(self):
 		image = self.curImage
 		pick = self.curPick
 		scene = self.curScene
-		if None in (image, pick, scene):
+		index, pickImage = pick.findNearestImage(image, 1)
+		if index is None:
 			return
-		pickImage = pick.findNearestImage(image, 1)
+		elif index == 0:
+			self.showHomeFlag()
 		self._aidx, self._iidx = scene.indexImage(pickImage)
+		self.updateImageCtrl()
+		self.updateFaceCtrls()
+
+	def show(self):
+		self._sidx = 0
+		self._aidx = 0
+		self._iidx = 0
+		if not self.isValid():
+			return
+		self.showScene()
 
 	def showScene(self):
 		self._aidx = 0
@@ -95,22 +118,41 @@ class ImageViewer(Ui_ImageViewer):
 	def showPrevAction(self):
 		scene = self.curScene
 		self._aidx = scene.normalizeActionIdx(self._aidx - 1, loop=True) if scene else 0
+		if self._aidx == 0:
+			self.showHomeFlag()
 		self.showAction()
 
 	def showNextAction(self):
 		scene = self.curScene
 		self._aidx = scene.normalizeActionIdx(self._aidx + 1, loop=True) if scene else 0
+		if self._aidx == 0:
+			self.showHomeFlag()
 		self.showAction()
 
 	def switchStar(self):
 		pick = self.curPick
 		image = self.curImage
-		if not pick or not image:
-			return
 		if pick.isInPick(image):
 			pick.delFromPick(image)
 		else:
 			pick.addToPick(image)
+		self.updateImageCtrl()
+		self.updateFaceStars()
+
+	def replaceStar(self):
+		action = self.curAction
+		pick = self.curPick
+		image = self.curImage
+		[
+			pick.delFromPick(img)
+			for img in action.getImages()
+			if pick.isInPick(img) and img != image
+		]
+		self.switchStar()
+
+	def clearPick(self):
+		pick = self.curPick
+		pick.clear()
 		self.updateImageCtrl()
 		self.updateFaceStars()
 
@@ -131,9 +173,7 @@ class ImageViewer(Ui_ImageViewer):
 	def updateFaceCtrls(self):
 		self.clearFaceCtrls()
 		action = self.curAction
-		if not action:
-			return
-		height = self.scrollArea.height() - 35
+		height = self.scrollArea.height() - 20
 		faces = action.getFaces()
 		for face in faces:
 			pixmap = QPixmap(face)
@@ -144,15 +184,19 @@ class ImageViewer(Ui_ImageViewer):
 			self.faceLayout.addWidget(ctrl.root)
 			self._faceCtrls.append(ctrl)
 		self.updateFaceStars()
+		self.updateActionNum()
+
+	def updateActionNum(self):
+		self.actionNum.setText('%d/%d' % (self._aidx + 1, self.curScene.getActionLen()))
 
 	def updateImageCtrl(self):
 		image = self.curImage
-		if not image:
-			return
 		self.img.setPixmap(QPixmap(image))
 
-	def keyPressEvent(self, event):
+	def keyPressEvent(self, event):  # noqa
 		QWidget.keyPressEvent(self.root, event)
+		if not self.isValid():
+			return
 		if event.key() == Qt.Key_Left:
 			self.showPrevPick()
 		elif event.key() == Qt.Key_Right:
@@ -170,9 +214,22 @@ class ImageViewer(Ui_ImageViewer):
 		elif event.key() == Qt.Key_S:
 			self.showNextAction()
 		elif event.key() == Qt.Key_Q:
+			self.replaceStar()
+		elif event.key() == Qt.Key_E:
 			self.switchStar()
+		elif event.key() == Qt.Key_F:
+			self.clearPick()
 		else:
 			event.ignore()
+
+	def showHomeFlag(self):
+		self.home.setVisible(True)
+		cw = self.imgFrame.width()
+		ch = self.imgFrame.height()
+		hw = self.home.width()
+		hh = self.home.height()
+		self.home.move(QPoint((cw - hw) / 2, (ch - hh) / 2))
+		QTimer.singleShot(500, lambda: self.home.setVisible(False))
 
 	def paintEvent(self, event):
 		if self.curImage:
@@ -202,12 +259,20 @@ class ImageViewer(Ui_ImageViewer):
 			iy = self.img.pos().y()
 			iw = self.img.width()
 			ih = self.img.height()
-			dw = self.star.width()
-			dh = self.star.height()
-			starPos = QPoint(ix + iw - dw, iy + ih - dh)
-			self.star.move(starPos)
+			sw = self.star.width()
+			sh = self.star.height()
+			sx = ix + iw - sw
+			sy = iy + ih - sh
+			self.star.move(QPoint(sx, sy))
+			self.starNum.setText(str(pick.getImageLen()))
+			nw = self.starNum.width()
+			nh = self.starNum.height()
+			nx = sx + (sw - nw) / 2
+			ny = sy + (sh - nh) / 2
+			self.starNum.move(QPoint(nx, ny))
 		else:
 			self.star.setVisible(False)
+			self.starNum.setText('')
 
 	def _updateBar(self):
 		for ctrl in self._faceCtrls:

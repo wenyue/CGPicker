@@ -6,17 +6,17 @@ import shutil
 
 
 def groupby(func, elist):
+	if not elist:
+		return []
 	groups = []
 	group = []
-	preElement = None
 	for element in elist:
-		if preElement is None or func(preElement, element):
+		if not group or func(group[-1], element):
 			group.append(element)
 		else:
 			groups.append(group)
 			group = [element]
-		preElement = element
-	group and groups.append(group)
+	groups.append(group)
 	return groups
 
 

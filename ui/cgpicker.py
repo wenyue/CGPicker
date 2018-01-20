@@ -24,13 +24,17 @@ class CGPicker(Ui_CGPicker):
 	def pickCGToTmp(self):
 		from tools.picker import pickCGToTmp
 		CGPath = QFileDialog.getExistingDirectory(self.root, "choose directory")
+		if not CGPath:
+			return
 		pickCGToTmp(CGPath)
 		data.loadDataFromTmp()
-		self.showScene()
+		self.viewer.show()
 
 	def collectPickToCG(self):
 		from tools.collector import collectPickToCG
 		CGPath = QFileDialog.getExistingDirectory(self.root, "choose directory")
+		if not CGPath:
+			return
 		collectPickToCG(CGPath)
 
 	def keyPressEvent(self, event):
@@ -46,4 +50,4 @@ class CGPicker(Ui_CGPicker):
 
 	def show(self):
 		self.root.show()
-		self.viewer.showScene()
+		self.viewer.show()

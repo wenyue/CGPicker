@@ -26,9 +26,9 @@ class Action(object):
 			self._faces.append(filepath)
 
 	def indexImage(self, image):
-		images = map(os.path.basename, self._images)
-		if image in images:
-			return images.index(image)
+		for index, img in enumerate(self._images):
+			if image == os.path.basename(img):
+				return index
 
 	def getImage(self, index):
 		return self._images[index] if index < len(self._images) else None
@@ -57,16 +57,21 @@ class Pick(object):
 		for filename in os.listdir(self._path):
 			self._images.append(filename)
 
+	def clear(self):
+		for image in self._images.copy():
+			self.delFromPick(image)
+
 	def findNearestImage(self, imagepath, offset):
-		if offset not in (-1, 1):
-			return None
+		if offset not in (-1, 1) or not self._images:
+			return None, None
 		image = os.path.basename(imagepath)
 		if image in self._images:
 			index = self._images.index(image)
-			index = self.normalizeImageIdx(index + offset)
+			index = self.normalizeImageIdx(index + offset, loop=True)
 		else:
 			index = next((index for index, img in enumerate(self._images) if image < img), 0)
-		return index
+			index = index - 1 if offset == -1 else index
+		return index, self._images[index]
 
 	def isInPick(self, imagepath):
 		image = os.path.basename(imagepath)
@@ -87,6 +92,9 @@ class Pick(object):
 		self._images.remove(image)
 		pickpath = os.path.join(self._path, image)
 		os.remove(pickpath)
+
+	def getImageLen(self):
+		return len(self._images)
 
 	def normalizeImageIdx(self, index, loop=False):
 		if loop:
@@ -115,13 +123,16 @@ class Scene(object):
 	def getAction(self, index):
 		return self._actions[index] if index < len(self._actions) else None
 
+	def getActionLen(self):
+		return len(self._actions)
+
 	def getPick(self):
 		return self._pick
 
 	def indexImage(self, image):
 		aidx, iidx = next(((aidx, action.indexImage(image))
 						   for aidx, action in enumerate(self._actions)
-						   if action.indexImage(image)), (None, None))
+						   if action.indexImage(image) is not None), (None, None))
 		return aidx, iidx
 
 	def normalizeActionIdx(self, index, loop=False):

@@ -6,31 +6,35 @@ import os
 import macro
 import util
 import random
+import math
 from functools import reduce
 
 
 def loadImage(filename):
-	ori_img = Image.open(filename)
-	w, h = int(ori_img.width * macro.NORMALIZE_SCALE), int(
-		ori_img.height * macro.NORMALIZE_SCALE)
-	img = ori_img.resize((w, h))
+	img = Image.open(filename)
+	w, h = int(img.width * macro.NORMALIZE_SCALE), int(img.height * macro.NORMALIZE_SCALE)
+	img = img.resize((w, h))
 	img.filename = filename
-	img.ori_img = ori_img
 	return img
 
 
+def isSamePixel(lp, rp):
+	return max(abs(x[0] - x[1]) for x in zip(lp, rp)) < 32
+
+
 def calSimilarity(li, ri):
-	if li.size != ri.size:
-		return 0
 	w, h = li.size
 	lp = li.load()
 	rp = ri.load()
 	samePixelNum = sum(
-		1 if lp[i, j] == rp[i, j] else 0 for i in range(w) for j in range(h))
+		1 if isSamePixel(lp[i, j], rp[i, j]) else 0 for i in range(w) for j in range(h))
 	return float(samePixelNum) / (w * h)
 
 
 def isSameScene(li, ri):
+	if li.size != ri.size:
+		return False
+	print(calSimilarity(li, ri))
 	return calSimilarity(li, ri) > macro.SAME_SCENE_THRESHOLD
 
 
@@ -41,23 +45,50 @@ def getDiffRect(li, ri):
 	xmax, xmin, ymax, ymin = 0, w, 0, h
 	for i in range(w):
 		for j in range(h):
-			if lp[i, j] != rp[i, j]:
+			if not isSamePixel(lp[i, j], rp[i, j]):
 				xmax, xmin, ymax, ymin = max(xmax, i), min(xmin, i), max(ymax, j), min(
 					ymin, j)
-	return xmax, xmin, ymax, ymin
+	return [xmin, ymin, xmax, ymax]
 
 
-def isSameAction(li, ri):
-	if li.size != ri.size:
-		return False
-	w, h = li.size
-	xmax, xmin, ymax, ymin = getDiffRect(li, ri)
-	areaWidth = max((xmax - xmin), (ymax - ymin))
-	return areaWidth * areaWidth < w * h * (1.0 - macro.SAME_ACTION_THRESHOLD)
+def calFaceRects(scene):
+	rects = []
+
+	def genRects(li, ri):
+		rects.append(getDiffRect(li, ri))
+		return ri
+
+	reduce(genRects, scene)
+	return rects
+
+
+def groupbyFaceArea(scene):
+	w, h = scene[0].size
+	if len(scene) == 1:
+		return [scene], [0, 0, w, h]
+	rects = calFaceRects(scene)
+	width = int(math.sqrt(w * h * (1.0 - macro.SAME_ACTION_THRESHOLD)))
+	nums = []
+	for rect in rects:
+		sx = min(max((rect[0] + rect[2] - width) // 2, 0), w - width)
+		sy = min(max((rect[1] + rect[3] - width) // 2, 0), h - width)
+		area = [sx, sy, sx + width, sy + width]
+		nums.append((sum(1 if area[0] <= v[0] and area[1] <= v[1] and area[2] >= v[2] and
+						 area[3] >= v[3] else 0 for v in rects), area))
+	_, area = max(nums)
+
+	def isSameAction(li, ri):
+		idx = scene.index(li)
+		v = rects[idx]
+		return area[0] <= v[0] and area[1] <= v[1] and area[2] >= v[2] and area[3] >= v[3]
+
+	scene = util.groupby(isSameAction, scene)
+	return scene, area
 
 
 def copyImagesToTmp(images):
-	for sid, scene in enumerate(images):
+	for sid, v in enumerate(images):
+		scene = v[0]
 		for aid, action in enumerate(scene):
 			for img in action:
 				util.copy(img.filename,
@@ -66,44 +97,31 @@ def copyImagesToTmp(images):
 
 
 def genFaceToTmp(images):
-	for sid, scene in enumerate(images):
+	for sid, v in enumerate(images):
+		scene, area = v
+		area = [val / macro.NORMALIZE_SCALE for val in area]
 		for aid, action in enumerate(scene):
-			if len(action) == 1:
-				util.copy(action[0].filename,
-						  os.path.join(macro.TMP_PATH,
-									   '%04d/%02d/%s' % (sid, aid, macro.FACE_NAME)))
-				continue
-
-			rect = [float('inf'), float('inf'), 0, 0]
-
-			def func(li, ri):
-				xmax, xmin, ymax, ymin = getDiffRect(li, ri)
-				rect[0] = min(rect[0], xmin)
-				rect[1] = min(rect[1], ymin)
-				rect[2] = max(rect[2], xmax)
-				rect[3] = max(rect[3], ymax)
-				return ri
-
-			reduce(func, action)
-			rect = [val / macro.NORMALIZE_SCALE for val in rect]
 			for img in action:
 				facePath = os.path.join(macro.TMP_PATH,
 										'%04d/%02d/%s' % (sid, aid, macro.FACE_NAME))
 				os.makedirs(facePath, exist_ok=True)
 				basename = os.path.basename(img.filename)
 				facePath = os.path.join(facePath, basename)
-				face = img.ori_img.crop(rect)
+				face = Image.open(img.filename).crop(area)
 				face.save(facePath)
 
 
 def pickImagesToTmp(images):
-	picks = []
-	for sid, scene in enumerate(images):
+	for sid, v in enumerate(images):
+		scene = v[0]
+		picks = []
 		for action in scene:
 			if picks:
 				imgs = random.sample(action, min(len(action), macro.SAMPLE_IMAGE_NUM))
 				cpicks = picks[-macro.COMPARE_IMAGE_NUM:]
-				values = [sum(calSimilarity(img, pick) for pick in cpicks) for img in imgs]
+				values = [
+					sum(calSimilarity(img, pick) for pick in cpicks) for img in imgs
+				]
 				_, pick = min(zip(values, imgs), key=lambda x: x[0])
 			else:
 				pick = random.choice(action) if random.randint(0, 1) else action[0]
@@ -117,7 +135,7 @@ def pickCGToTmp(path):
 	images = [os.path.join(path, fname) for fname in os.listdir(path)]
 	images = [loadImage(fname) for fname in images if util.isImage(fname)]
 	images = util.groupby(isSameScene, images)
-	images = [util.groupby(isSameAction, scene) for scene in images]
+	images = [groupbyFaceArea(scene) for scene in images]
 	copyImagesToTmp(images)
 	genFaceToTmp(images)
 	pickImagesToTmp(images)
