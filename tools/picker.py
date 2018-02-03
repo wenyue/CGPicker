@@ -13,13 +13,13 @@ from functools import reduce
 def loadImage(filename):
 	img = Image.open(filename)
 	w, h = int(img.width * macro.NORMALIZE_SCALE), int(img.height * macro.NORMALIZE_SCALE)
-	img = img.resize((w, h))
+	img = img.resize((w, h), Image.BILINEAR)
 	img.filename = filename
 	return img
 
 
 def isSamePixel(lp, rp):
-	return max(abs(x[0] - x[1]) for x in zip(lp, rp)) < 32
+	return max(abs(x[0] - x[1]) for x in zip(lp, rp)) < 16
 
 
 def calSimilarity(li, ri):
@@ -66,15 +66,17 @@ def groupbyFaceArea(scene):
 	if len(scene) == 1:
 		return [scene], [0, 0, w, h]
 	rects = calFaceRects(scene)
-	width = int(math.sqrt(w * h * (1.0 - macro.SAME_ACTION_THRESHOLD)))
+	maxWidth = int(math.sqrt(w * h * (1.0 - macro.SAME_ACTION_THRESHOLD)))
 	nums = []
 	for rect in rects:
+		extend = int(macro.SAME_ACTION_EXTEND * macro.NORMALIZE_SCALE)
+		width = min(max(rect[2] - rect[0], rect[3] - rect[1]) + extend, maxWidth)
 		sx = min(max((rect[0] + rect[2] - width) // 2, 0), w - width)
 		sy = min(max((rect[1] + rect[3] - width) // 2, 0), h - width)
 		area = [sx, sy, sx + width, sy + width]
 		nums.append((sum(1 if area[0] <= v[0] and area[1] <= v[1] and area[2] >= v[2] and
-						 area[3] >= v[3] else 0 for v in rects), area))
-	_, area = max(nums)
+						 area[3] >= v[3] else 0 for v in rects), -width, area))
+	_, _, area = max(nums)
 
 	def isSameAction(li, ri):
 		idx = scene.index(li)
