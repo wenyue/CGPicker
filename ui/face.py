@@ -3,34 +3,42 @@
 
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtCore import QPoint, QSize
+from PyQt5.QtGui import QPixmap
 from template.ui_face import Ui_Face
+import os
+
 
 class Face(Ui_Face):
-	def __init__(self, *args, **kwargs):
-		self.root = QWidget(*args, **kwargs)
-		self.setupUi(self.root)
-	
-	def setPixmap(self, pixmap):
-		self.img.setPixmap(pixmap)
-		size = pixmap.size()
-		self.root.setMinimumSize(size)
-		self.img.resize(size)
-		self.setEnable(True)
-		self.root.show()
+    def __init__(self, *args, **kwargs):
+        self.root = QWidget(*args, **kwargs)
+        self.setupUi(self.root)
+        self.starNum.setStyleSheet("font-size:20px")
+        self._face = None
+        self._filesize = None
 
-	def setEnable(self, isEnable):
-		if isEnable:
-			size = self.img.pixmap().size()
-			self.img.resize(size)
-			self.img.move(QPoint(0, 0))
-		else:
-			size = self.img.pixmap().size()
-			w, h = size.width(), size.height()
-			scale = 0.85
-			size = QSize(w * scale, h * scale)
-			self.img.resize(size)
-			self.img.move(QPoint(w * (1 - scale) / 2, h * (1 - scale) / 2))
-		ix, iy = self.img.x(), self.img.y()
-		iw, ih = self.img.width(), self.img.height()
-		sw, sh = self.star.width(), self.star.height()
-		self.star.move(QPoint(ix + iw - sw, iy + ih - sh))
+    def setFace(self, face):
+        filesize = os.path.getsize(face)
+        if (self._face == face and self._filesize == filesize):
+            return
+        self._face = face
+        self._filesize = filesize
+        pixmap = QPixmap(face)
+        height = self.root.height()
+        width = pixmap.width() / pixmap.height() * height
+        pixmap = pixmap.scaled(QSize(width, height))
+
+        self.img.setPixmap(pixmap)
+        size = pixmap.size()
+        self.root.setMinimumSize(size)
+        self.img.resize(size)
+
+        ix, iy = self.img.x(), self.img.y()
+        iw, ih = self.img.width(), self.img.height()
+        sw, sh = self.icons.width(), self.icons.height()
+        self.icons.move(QPoint(ix + iw - sw, iy + ih - sh))
+
+    def selected(self, isSelected):
+        if isSelected:
+            self.img.setStyleSheet('border: 3px solid red')
+        else:
+            self.img.setStyleSheet('')

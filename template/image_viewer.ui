@@ -41,25 +41,6 @@
        <bool>true</bool>
       </property>
      </widget>
-     <widget class="QLabel" name="star">
-      <property name="geometry">
-       <rect>
-        <x>580</x>
-        <y>250</y>
-        <width>80</width>
-        <height>80</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="pixmap">
-       <pixmap>resource/star.png</pixmap>
-      </property>
-      <property name="scaledContents">
-       <bool>true</bool>
-      </property>
-     </widget>
      <widget class="QLabel" name="home">
       <property name="geometry">
        <rect>
@@ -77,22 +58,6 @@
       </property>
       <property name="scaledContents">
        <bool>true</bool>
-      </property>
-     </widget>
-     <widget class="QLabel" name="starNum">
-      <property name="geometry">
-       <rect>
-        <x>590</x>
-        <y>300</y>
-        <width>60</width>
-        <height>30</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignCenter</set>
       </property>
      </widget>
     </widget>
@@ -114,7 +79,7 @@
     </widget>
    </item>
    <item>
-    <widget class="QScrollArea" name="scrollArea">
+    <widget class="QScrollArea" name="faceFrame">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
        <horstretch>0</horstretch>

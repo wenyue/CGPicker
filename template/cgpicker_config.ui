@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>CGPickerConfig</class>
+ <widget class="QWidget" name="CGPickerConfig">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>195</width>
+    <height>551</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QFormLayout" name="formLayout">
+   <item row="0" column="0">
+    <widget class="QLabel" name="sceneAberrationEnduranceL">
+     <property name="text">
+      <string>场景色差忍耐值：</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QDoubleSpinBox" name="sceneAberrationEndurance"/>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="sceneAberrationThresholdL">
+     <property name="text">
+      <string>场景色差阈值：</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QDoubleSpinBox" name="sceneAberrationThreshold"/>
+   </item>
+   <item row="3" column="0">
+    <widget class="QLabel" name="faceBestSizeL">
+     <property name="text">
+      <string>面部标准大小：</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="QDoubleSpinBox" name="faceBestSize"/>
+   </item>
+   <item row="4" column="0">
+    <widget class="QLabel" name="faceMaxSizeL">
+     <property name="text">
+      <string>面部上限大小：</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QDoubleSpinBox" name="faceMaxSize"/>
+   </item>
+   <item row="5" column="0">
+    <widget class="QLabel" name="faceExtendFactorL">
+     <property name="text">
+      <string>面部扩展系数：</string>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="1">
+    <widget class="QDoubleSpinBox" name="faceExtendFactor"/>
+   </item>
+   <item row="6" column="0">
+    <widget class="QLabel" name="faceReforceFactorL">
+     <property name="text">
+      <string>面部加强系数：</string>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="1">
+    <widget class="QDoubleSpinBox" name="faceReforceFactor"/>
+   </item>
+   <item row="7" column="0">
+    <widget class="QLabel" name="faceSizeFactorL">
+     <property name="text">
+      <string>面部大小系数：</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="1">
+    <widget class="QDoubleSpinBox" name="faceSizeFactor"/>
+   </item>
+   <item row="8" column="0">
+    <widget class="QLabel" name="faceShapeFactorL">
+     <property name="text">
+      <string>面部形状系数：</string>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="1">
+    <widget class="QDoubleSpinBox" name="faceShapeFactor"/>
+   </item>
+   <item row="9" column="0">
+    <widget class="QLabel" name="faceAberrationFactorL">
+     <property name="text">
+      <string>面部色差系数：</string>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="1">
+    <widget class="QDoubleSpinBox" name="faceAberrationFactor"/>
+   </item>
+   <item row="2" column="0" colspan="2">
+    <widget class="Line" name="line">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
