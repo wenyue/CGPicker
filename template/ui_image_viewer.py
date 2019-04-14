@@ -51,7 +51,7 @@ class Ui_ImageViewer(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.faceFrame.sizePolicy().hasHeightForWidth())
         self.faceFrame.setSizePolicy(sizePolicy)
-        self.faceFrame.setMinimumSize(QtCore.QSize(0, 200))
+        self.faceFrame.setMinimumSize(QtCore.QSize(0, 150))
         self.faceFrame.setFocusPolicy(QtCore.Qt.TabFocus)
         self.faceFrame.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.faceFrame.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)

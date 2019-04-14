@@ -21,11 +21,11 @@ class CGPicker(Ui_CGPicker):
         self.setupMainMenu()
 
     def addSubPanel(self):
-        self.image_viewer = ImageViewer()
-        self.horizontalLayout.addWidget(self.image_viewer.root)
+        self.imageViewer = ImageViewer()
+        self.horizontalLayout.addWidget(self.imageViewer.root)
 
-        self.cgpicker_config = CGPickerConfig()
-        self.horizontalLayout.addWidget(self.cgpicker_config.root)
+        self.CGPickerConfig = CGPickerConfig()
+        self.horizontalLayout.addWidget(self.CGPickerConfig.root)
 
     def setupMainMenu(self):
         menubar = self.menubar
@@ -53,7 +53,14 @@ class CGPicker(Ui_CGPicker):
         quitAction.triggered.connect(qApp.quit)
         fileMenu.addAction(quitAction)
 
-        self.image_viewer.setupMainMenu(menubar)
+        windowMenu = menubar.addMenu('&Window')
+
+        CGPickerConfigAction = QAction('&Adjust pick factor', self.root)
+        CGPickerConfigAction.setShortcut('Ctrl+A')
+        CGPickerConfigAction.triggered.connect(self.CGPickerConfig.toggle)
+        windowMenu.addAction(CGPickerConfigAction)
+
+        self.imageViewer.setupMainMenu(menubar)
 
     def pickCGToTmp(self):
         from tools.picker import pickCGToTmp
@@ -67,7 +74,7 @@ class CGPicker(Ui_CGPicker):
         self.createLoading(lambda: convertImages(CGPath))
         self.createLoading(lambda: pickCGToTmp(CGPath))
         data.loadDataFromTmp()
-        self.image_viewer.show()
+        self.imageViewer.show()
 
     def collectPickToCG(self):
         from tools.collector import collectPickToCG
@@ -88,7 +95,7 @@ class CGPicker(Ui_CGPicker):
 
     def show(self):
         self.root.showMaximized()
-        self.image_viewer.show()
+        self.imageViewer.show()
 
     def createLoading(self, task):
         self.root.setEnabled(False)

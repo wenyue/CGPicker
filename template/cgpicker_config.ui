@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>CGPickerConfig</class>
- <widget class="QWidget" name="CGPickerConfig">
+ <widget class="QFrame" name="CGPickerConfig">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -19,6 +19,12 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
+  <property name="autoFillBackground">
+   <bool>false</bool>
+  </property>
+  <property name="frameShape">
+   <enum>QFrame::StyledPanel</enum>
+  </property>
   <layout class="QFormLayout" name="formLayout">
    <item row="0" column="0">
     <widget class="QLabel" name="sceneAberrationEnduranceL">
@@ -26,9 +32,6 @@
       <string>场景色差忍耐值：</string>
      </property>
     </widget>
-   </item>
-   <item row="0" column="1">
-    <widget class="QDoubleSpinBox" name="sceneAberrationEndurance"/>
    </item>
    <item row="1" column="0">
     <widget class="QLabel" name="sceneAberrationThresholdL">
@@ -38,7 +41,21 @@
     </widget>
    </item>
    <item row="1" column="1">
-    <widget class="QDoubleSpinBox" name="sceneAberrationThreshold"/>
+    <widget class="QDoubleSpinBox" name="sceneAberrationThreshold">
+     <property name="maximum">
+      <double>1.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.100000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0" colspan="2">
+    <widget class="Line" name="line">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
    </item>
    <item row="3" column="0">
     <widget class="QLabel" name="faceBestSizeL">
@@ -48,7 +65,14 @@
     </widget>
    </item>
    <item row="3" column="1">
-    <widget class="QDoubleSpinBox" name="faceBestSize"/>
+    <widget class="QDoubleSpinBox" name="faceBestSize">
+     <property name="maximum">
+      <double>1.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.010000000000000</double>
+     </property>
+    </widget>
    </item>
    <item row="4" column="0">
     <widget class="QLabel" name="faceMaxSizeL">
@@ -58,7 +82,14 @@
     </widget>
    </item>
    <item row="4" column="1">
-    <widget class="QDoubleSpinBox" name="faceMaxSize"/>
+    <widget class="QDoubleSpinBox" name="faceMaxSize">
+     <property name="maximum">
+      <double>1.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.100000000000000</double>
+     </property>
+    </widget>
    </item>
    <item row="5" column="0">
     <widget class="QLabel" name="faceExtendFactorL">
@@ -68,7 +99,14 @@
     </widget>
    </item>
    <item row="5" column="1">
-    <widget class="QDoubleSpinBox" name="faceExtendFactor"/>
+    <widget class="QDoubleSpinBox" name="faceExtendFactor">
+     <property name="maximum">
+      <double>3.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.100000000000000</double>
+     </property>
+    </widget>
    </item>
    <item row="6" column="0">
     <widget class="QLabel" name="faceReforceFactorL">
@@ -78,7 +116,14 @@
     </widget>
    </item>
    <item row="6" column="1">
-    <widget class="QDoubleSpinBox" name="faceReforceFactor"/>
+    <widget class="QDoubleSpinBox" name="faceReforceFactor">
+     <property name="maximum">
+      <double>10.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.100000000000000</double>
+     </property>
+    </widget>
    </item>
    <item row="7" column="0">
     <widget class="QLabel" name="faceSizeFactorL">
@@ -88,7 +133,14 @@
     </widget>
    </item>
    <item row="7" column="1">
-    <widget class="QDoubleSpinBox" name="faceSizeFactor"/>
+    <widget class="QDoubleSpinBox" name="faceSizeFactor">
+     <property name="maximum">
+      <double>10.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.100000000000000</double>
+     </property>
+    </widget>
    </item>
    <item row="8" column="0">
     <widget class="QLabel" name="faceShapeFactorL">
@@ -98,7 +150,14 @@
     </widget>
    </item>
    <item row="8" column="1">
-    <widget class="QDoubleSpinBox" name="faceShapeFactor"/>
+    <widget class="QDoubleSpinBox" name="faceShapeFactor">
+     <property name="maximum">
+      <double>10.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.100000000000000</double>
+     </property>
+    </widget>
    </item>
    <item row="9" column="0">
     <widget class="QLabel" name="faceAberrationFactorL">
@@ -108,14 +167,17 @@
     </widget>
    </item>
    <item row="9" column="1">
-    <widget class="QDoubleSpinBox" name="faceAberrationFactor"/>
-   </item>
-   <item row="2" column="0" colspan="2">
-    <widget class="Line" name="line">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
+    <widget class="QDoubleSpinBox" name="faceAberrationFactor">
+     <property name="maximum">
+      <double>1.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.100000000000000</double>
      </property>
     </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QSpinBox" name="sceneAberrationEndurance"/>
    </item>
   </layout>
  </widget>

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>300</width>
-    <height>180</height>
+    <width>130</width>
+    <height>130</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -24,8 +24,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>200</width>
-     <height>200</height>
+     <width>130</width>
+     <height>130</height>
     </rect>
    </property>
    <property name="autoFillBackground">
@@ -41,8 +41,8 @@
   <widget class="QWidget" name="icons" native="true">
    <property name="geometry">
     <rect>
-     <x>200</x>
-     <y>100</y>
+     <x>80</x>
+     <y>80</y>
      <width>50</width>
      <height>50</height>
     </rect>

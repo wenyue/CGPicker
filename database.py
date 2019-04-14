@@ -3,16 +3,15 @@
 
 import os
 import util
-from macro import TMP_NAME, PICK_NAME, LOVE_NAME, BACKUP_NAME
-from macro import IMAGE_NAME, FACE_NAME
+import macro
 from tools.picker import repickScene
 
 
 class Action(object):
     def __init__(self, path):
         self._path = path
-        self._imagepath = os.path.join(self._path, IMAGE_NAME)
-        self._facepath = os.path.join(self._path, FACE_NAME)
+        self._imagepath = os.path.join(self._path, macro.IMAGE_NAME)
+        self._facepath = os.path.join(self._path, macro.FACE_NAME)
         self.load()
 
     def load(self):
@@ -51,7 +50,7 @@ class Action(object):
     def getFaceByImage(self, imagepath):
         fname = os.path.basename(imagepath)
         parentPath = os.path.dirname(os.path.dirname(imagepath))
-        return os.path.join(parentPath, FACE_NAME, fname)
+        return os.path.join(parentPath, macro.FACE_NAME, fname)
 
     def normalizeImageIdx(self, index, loop=False):
         if loop:
@@ -102,20 +101,20 @@ class Scene(object):
         return int(os.path.basename(self._path))
 
     def repick(self):
-        tmpPath = os.path.join(self._path, TMP_NAME)
+        tmpPath = os.path.join(self._path, macro.TMP_NAME)
         if os.path.exists(tmpPath):
             repickScene(self.getSceneId(), 1, False)
 
     def load(self):
         self._actions = []
         for dirname in os.listdir(self._path):
-            if dirname in (PICK_NAME, LOVE_NAME, BACKUP_NAME):
+            if dirname in (macro.PICK_NAME, macro.LOVE_NAME, macro.BACKUP_NAME):
                 continue
             actionPath = os.path.join(self._path, dirname)
             self._actions.append(Action(actionPath))
-        pickPath = os.path.join(self._path, PICK_NAME)
+        pickPath = os.path.join(self._path, macro.PICK_NAME)
         self._pick = Pick(pickPath)
-        lovePath = os.path.join(self._path, LOVE_NAME)
+        lovePath = os.path.join(self._path, macro.LOVE_NAME)
         self._love = Pick(lovePath)
 
     def getAction(self, index):
@@ -151,10 +150,10 @@ class Database(object):
 
     def loadDataFromTmp(self):
         self._scenes = []
-        if not os.path.exists(TMP_NAME):
+        if not os.path.exists(macro.TMP_NAME):
             return
-        for dirname in os.listdir(TMP_NAME):
-            dirpath = os.path.join(TMP_NAME, dirname)
+        for dirname in os.listdir(macro.TMP_NAME):
+            dirpath = os.path.join(macro.TMP_NAME, dirname)
             scene = Scene(dirpath)
             self._scenes.append(scene)
 
