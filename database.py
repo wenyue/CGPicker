@@ -108,7 +108,8 @@ class Scene(object):
     def load(self):
         self._actions = []
         for dirname in os.listdir(self._path):
-            if dirname in (macro.PICK_NAME, macro.LOVE_NAME, macro.BACKUP_NAME):
+            if dirname in (macro.PICK_NAME, macro.LOVE_NAME,
+                           macro.BACKUP_NAME):
                 continue
             actionPath = os.path.join(self._path, dirname)
             self._actions.append(Action(actionPath))

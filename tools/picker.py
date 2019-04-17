@@ -42,7 +42,7 @@ def loadImage(filename):
 
 
 def isSamePixel(lp, rp, i, j):
-    return abs(lp[i, j] - rp[i, j]) < macro.SCENE_ABERRATION_ENDURANCE
+    return abs(lp[i, j] - rp[i, j]) < macro.ABERRATION_ENDURANCE
 
 
 def calSimilarity(li, ri):
@@ -65,22 +65,30 @@ def calHit(hits, li, ri):
     w, h = li.size
     lp = li.load()
     rp = ri.load()
-    totDiff = sum(
-        pow(abs(lp[i, j] - rp[i, j]), factor) for i in range(w)
-        for j in range(h))
-    if totDiff == 0:
-        return
+    totalValue = 0
+    values = [[0] * h for _ in range(w)]
     for i in range(w):
         for j in range(h):
-            hits[i][j] += pow(abs(lp[i, j] - rp[i, j]), factor) / totDiff
+            value = pow(abs(lp[i, j] - rp[i, j]), factor)
+            values[i][j] = value
+            totalValue += value
+    if totalValue != 0:
+        for i in range(w):
+            for j in range(h):
+                hits[i][j] += values[i][j] / totalValue
 
 
 def calHits(scene):
     w, h = scene[0].size
     hits = [[0] * h for _ in range(w)]
+    if (len(scene) == 1):
+        return hits
     reduce(lambda li, ri: calHit(hits, li, ri) or ri, scene)
     hits = [[pow(value, macro.FACE_REFORCE_FACTOR) for value in col]
             for col in hits]
+    totalValue = sum(map(sum, hits))
+    if totalValue != 0:
+        hits = [[value / totalValue for value in col] for col in hits]
     return hits
 
 
@@ -102,7 +110,8 @@ def calRegion(regions, hits, li, ri):
     shape = abs((right - left) - (bottom - top)) / radius
     radius = int(radius * macro.FACE_EXTEND_FACTOR // 2)
     maxRadius = int(math.sqrt(w * h * macro.FACE_MAX_SIZE) // 2)
-    if 0 < radius <= maxRadius:
+    minRadius = int(math.sqrt(w * h * macro.FACE_MIN_SIZE) // 2)
+    if minRadius < radius < maxRadius:
         regions.append((x, y, radius, shape))
 
 
@@ -153,10 +162,13 @@ def calHitValue(totalHits, x, y, radius):
 
 
 def calFaceRegions(scene, faceNum=1, debug=False):  # noqa
+    w, h = scene[0].size
+    maxRadius = int(math.sqrt(w * h * macro.FACE_MAX_SIZE) // 2)
+    minRadius = int(math.sqrt(w * h * macro.FACE_MIN_SIZE) // 2)
+
     hits = calHits(scene)
 
     faces = []
-    w, h = scene[0].size
     for _ in range(faceNum):
         if debug:
             debugData(hits)
@@ -165,29 +177,42 @@ def calFaceRegions(scene, faceNum=1, debug=False):  # noqa
         totalHits = calTotalHits(hits)
         if faces:
             bestRadius = faces[0][2]
+            faceSizeFactor = macro.FACE_SIZE_FACTOR
         else:
             bestRadius = int(math.sqrt(w * h * macro.FACE_BEST_SIZE) // 2)
+            faceSizeFactor = macro.FACE_SIZE_FACTOR / 2
 
         regions = []
         reduce(lambda li, ri: calRegion(regions, hits, li, ri) or ri, scene)
         for region in regions:
             x, y, radius, shape = region
-            faceSize = max(radius, bestRadius) / min(radius, bestRadius)
-            factor = faceSize * macro.FACE_SIZE_FACTOR + shape * macro.FACE_SHAPE_FACTOR
+            if radius > bestRadius:
+                faceSize = (radius - bestRadius) / (maxRadius - bestRadius)
+            else:
+                faceSize = (bestRadius - radius) / (bestRadius - minRadius)
+            factor = faceSize * faceSizeFactor + \
+                    shape * macro.FACE_SHAPE_FACTOR + \
+                    (x / w) * macro.FACE_LEFT_FACTOR + \
+                    (y / h) * macro.FACE_TOP_FACTOR + 1
             value = calHitValue(totalHits, x, y, radius) / factor
             center = max(center, (value, region))
 
         if (faceNum > 1):
-            maxRadius = int(math.sqrt(w * h * macro.FACE_MAX_SIZE) // 2)
             for scale in macro.FACE_DETECT_FACTORS:
                 radius = max(int(bestRadius * scale), 1)
-                if radius > maxRadius:
+                if not (minRadius < radius < maxRadius):
                     break
-                faceSize = max(radius, bestRadius) / min(radius, bestRadius)
-                shape = 0.5
-                factor = faceSize * macro.FACE_SIZE_FACTOR + shape * macro.FACE_SHAPE_FACTOR
+                if radius > bestRadius:
+                    faceSize = (radius - bestRadius) / (maxRadius - bestRadius)
+                else:
+                    faceSize = (bestRadius - radius) / (bestRadius - minRadius)
+                shape = 0.3
                 for x in range(w):
                     for y in range(h):
+                        factor = faceSize * faceSizeFactor + \
+                                shape * macro.FACE_SHAPE_FACTOR + \
+                                (x / w) * macro.FACE_LEFT_FACTOR + \
+                                (y / h) * macro.FACE_TOP_FACTOR + 1
                         value = calHitValue(totalHits, x, y, radius) / factor
                         center = max(center, (value, (x, y, radius, shape)))
 
@@ -202,7 +227,8 @@ def isSameAction(li, ri, faces):
     w, h = li.size
     lp = li.load()
     rp = ri.load()
-    count = 0
+    aberrationThreshold = w * h * macro.ACTION_ABERRATION_THRESHOLD
+    diffPixelCount = 0
     for i in range(w):
         for j in range(h):
             if not isSamePixel(lp, rp, i, j):
@@ -210,8 +236,8 @@ def isSameAction(li, ri, faces):
                     if max(abs(i - x), abs(j - y)) <= radius and shape >= 0:
                         break
                 else:
-                    count += 1
-                    if count >= 10:
+                    diffPixelCount += 1
+                    if diffPixelCount >= aberrationThreshold:
                         return False
     return True
 
@@ -307,23 +333,6 @@ def pickCGToTmp(path):
         yield 'picking: %d/%d' % (sid + 1, len(scenes))
 
 
-def collectScene(sid):
-    scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
-    tmpPath = os.path.join(scenePath, macro.TMP_NAME)
-    if os.path.exists(tmpPath):
-        return
-    backupPath = os.path.join(scenePath, macro.BACKUP_NAME)
-    if os.path.exists(backupPath):
-        shutil.copytree(backupPath, tmpPath)
-        return
-    for action in os.listdir(scenePath):
-        actionPath = os.path.join(scenePath, action)
-        if action not in (macro.PICK_NAME, macro.LOVE_NAME):
-            imagePath = os.path.join(actionPath, macro.IMAGE_NAME)
-            for image in os.listdir(imagePath):
-                util.copy(os.path.join(imagePath, image), tmpPath)
-
-
 def clearScene(sid):
     scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
     for action in os.listdir(scenePath):
@@ -332,30 +341,51 @@ def clearScene(sid):
             util.remove(actionPath)
 
 
+def collectScene(sid):
+    scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
+    tmpPath = os.path.join(scenePath, macro.TMP_NAME)
+    if not os.path.exists(tmpPath):
+        for action in os.listdir(scenePath):
+            actionPath = os.path.join(scenePath, action)
+            if action not in (macro.PICK_NAME, macro.LOVE_NAME):
+                imagePath = os.path.join(actionPath, macro.IMAGE_NAME)
+                for image in os.listdir(imagePath):
+                    util.copy(os.path.join(imagePath, image), tmpPath)
+    clearScene(sid)
+
+
 def backupScene(sid):
     scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
     backupPath = os.path.join(scenePath, macro.BACKUP_NAME)
-    if os.path.exists(backupPath):
-        return
-    for action in os.listdir(scenePath):
-        actionPath = os.path.join(scenePath, action)
-        if action not in (macro.PICK_NAME, macro.LOVE_NAME):
-            imagePath = os.path.join(actionPath, macro.IMAGE_NAME)
-            for image in os.listdir(imagePath):
-                util.copy(os.path.join(imagePath, image), backupPath)
+    if not os.path.exists(backupPath):
+        for action in os.listdir(scenePath):
+            actionPath = os.path.join(scenePath, action)
+            if action not in (macro.PICK_NAME, macro.LOVE_NAME):
+                imagePath = os.path.join(actionPath, macro.IMAGE_NAME)
+                for image in os.listdir(imagePath):
+                    util.copy(os.path.join(imagePath, image), backupPath)
+    clearScene(sid)
+
+
+def collectSceneFromBackup(sid):
+    scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
+    tmpPath = os.path.join(scenePath, macro.TMP_NAME)
+    backupPath = os.path.join(scenePath, macro.BACKUP_NAME)
+    util.remove(tmpPath)
+    shutil.copytree(backupPath, tmpPath)
 
 
 def repickScene(sid, faceNum, debug):
     collectScene(sid)
-    clearScene(sid)
     scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
     tmpPath = os.path.join(scenePath, macro.TMP_NAME)
     fnames = [fname for fname in os.listdir(tmpPath)]
-    fnames.sort()
-    images = [os.path.join(tmpPath, fname) for fname in fnames]
-    images = [loadImage(fname) for fname in images if util.isImage(fname)]
-    faces = calFaceRegions(images, faceNum, debug)
-    pickScene(sid, images, faces)
+    if len(fnames):
+        fnames.sort()
+        images = [os.path.join(tmpPath, fname) for fname in fnames]
+        images = [loadImage(fname) for fname in images if util.isImage(fname)]
+        faces = calFaceRegions(images, faceNum, debug)
+        pickScene(sid, images, faces)
     util.remove(tmpPath)
 
 

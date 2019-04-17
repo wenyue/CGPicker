@@ -1,12 +1,16 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-from PyQt5 import QtWidgets
-from ui.cgpicker import CGPicker
+import sys
+
+logger = open('log.txt', 'w')
+sys.stderr = logger
+sys.stdout = logger
 
 
 def main():
-    import sys
+    from PyQt5 import QtWidgets
+    from ui.cgpicker import CGPicker
     app = QtWidgets.QApplication(sys.argv)
     cgpicker = CGPicker()
     cgpicker.show()

@@ -21,8 +21,12 @@ def convertImages(path):
     for filename in tasks:
         basename, _ = os.path.splitext(filename)
         im = Image.open(filename)
-        im = im.convert('RGB')
-        im.save(basename + '.jpg', 'JPEG', quality=95)
+        try:
+            im = im.convert('RGB')
+        except Exception as e:
+            print("Convert image error:", filename)
+            raise (e)
+        im.save(basename + '.jpg', 'JPEG', quality=98)
         im.close()
         os.remove(filename)
         yield 'converting: ' + filename

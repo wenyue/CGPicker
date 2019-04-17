@@ -14,14 +14,14 @@ class Face(Ui_Face):
         self.setupUi(self.root)
         self.starNum.setStyleSheet("font-size:20px")
         self._face = None
-        self._filesize = None
+        self._mtime = None
 
     def setFace(self, face):
-        filesize = os.path.getsize(face)
-        if (self._face == face and self._filesize == filesize):
+        mtime = os.path.getmtime(face)
+        if (self._face == face and self._mtime == mtime):
             return
         self._face = face
-        self._filesize = filesize
+        self._mtime = mtime
         pixmap = QPixmap(face)
         height = self.root.height()
         width = pixmap.width() / pixmap.height() * height
@@ -39,6 +39,6 @@ class Face(Ui_Face):
 
     def selected(self, isSelected):
         if isSelected:
-            self.img.setStyleSheet('border: 3px solid red')
+            self.img.setStyleSheet('border: 5px solid red')
         else:
             self.img.setStyleSheet('')

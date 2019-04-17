@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QAction, QActionGroup
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QAction, QActionGroup, QLabel
 from PyQt5.QtCore import QPoint, QSize, QTimer
 from PyQt5.QtGui import QPixmap
 from template.ui_image_viewer import Ui_ImageViewer
@@ -11,7 +11,7 @@ from enum import Enum
 
 
 class ViewMode(Enum):
-    NORMAL = 1
+    SELECT = 1
     PICK = 2
     LOVE = 3
 
@@ -21,19 +21,21 @@ class ImageViewer(Ui_ImageViewer):
         self.root = QWidget(*args, **kwargs)
         self.setupUi(self.root)
 
-        self.root.resizeEvent = self.resizeEvent
+        self.img.paintEvent = self._paintImageCtrl
         self.faceLayout = QHBoxLayout(self.faces)
         self.faceLayout.setSpacing(0)
         self.home.setVisible(False)
         self.actionNum.setStyleSheet("font-size:30px")
+        self.actionNum.setText('number')
 
         self._faceCtrls = []
+        self._view_mode = ViewMode.PICK
+        self._last_view_mode = ViewMode.PICK
         self._sidx = 0
         self._aidx = 0
         self._iidx = 0
         self._pidx = 0
         self._lidx = 0
-        self._view_mode = ViewMode.NORMAL
 
     @property
     def curScene(self):
@@ -45,7 +47,7 @@ class ImageViewer(Ui_ImageViewer):
         scene = self.curScene
         if not scene:
             return
-        if self._view_mode == ViewMode.NORMAL:
+        if self._view_mode == ViewMode.SELECT:
             self._aidx = scene.normalizeActionIdx(self._aidx, loop=True)
             return scene.getAction(self._aidx)
         elif self._view_mode == ViewMode.PICK:
@@ -58,14 +60,14 @@ class ImageViewer(Ui_ImageViewer):
         action = self.curAction
         if not action:
             return
-        if self._view_mode == ViewMode.NORMAL:
+        if self._view_mode == ViewMode.SELECT:
             self._iidx = action.normalizeImageIdx(self._iidx)
             return action.getImage(self._iidx)
         elif self._view_mode == ViewMode.PICK:
-            self._pidx = action.normalizeImageIdx(self._pidx)
+            self._pidx = action.normalizeImageIdx(self._pidx, loop=True)
             return action.getImage(self._pidx)
         elif self._view_mode == ViewMode.LOVE:
-            self._lidx = action.normalizeImageIdx(self._lidx)
+            self._lidx = action.normalizeImageIdx(self._lidx, loop=True)
             return action.getImage(self._lidx)
 
     @property
@@ -81,13 +83,6 @@ class ImageViewer(Ui_ImageViewer):
     def isValid(self):
         return self.curImage is not None
 
-    def setViewMode(self, viewMode):
-        if self._view_mode == viewMode:
-            self._view_mode = ViewMode.NORMAL
-        else:
-            self._view_mode = viewMode
-        self.update()
-
     def setupMainMenu(self, menubar):
         viewMenu = menubar.addMenu('&View')
 
@@ -95,7 +90,7 @@ class ImageViewer(Ui_ImageViewer):
         normalViewAction.setShortcut('Q')
         normalViewAction.setCheckable(True)
         normalViewAction.triggered.connect(
-            lambda: self.setViewMode(ViewMode.NORMAL))
+            lambda: self.setViewMode(ViewMode.SELECT))
         viewMenu.addAction(normalViewAction)
 
         pickViewAction = QAction('&Pick view', self.root)
@@ -164,12 +159,17 @@ class ImageViewer(Ui_ImageViewer):
         editMenu = menubar.addMenu('&Edit')
 
         togglePickAction = QAction('&Toggle pick', self.root)
-        togglePickAction.setShortcut('D')
+        togglePickAction.setShortcut('Tab')
         togglePickAction.triggered.connect(self.togglePick)
         editMenu.addAction(togglePickAction)
 
+        clearPickAction = QAction('&Clear pick', self.root)
+        clearPickAction.setShortcut('C')
+        clearPickAction.triggered.connect(self.clearPick)
+        editMenu.addAction(clearPickAction)
+
         toggleLoveAction = QAction('&Toggle love', self.root)
-        toggleLoveAction.setShortcut('S')
+        toggleLoveAction.setShortcut('Ctrl+Tab')
         toggleLoveAction.triggered.connect(self.toggleLove)
         editMenu.addAction(toggleLoveAction)
 
@@ -190,61 +190,92 @@ class ImageViewer(Ui_ImageViewer):
 
         editMenu.addSeparator()
 
-        clearPickAction = QAction('&Clear pick', self.root)
-        clearPickAction.setShortcut('C')
-        clearPickAction.triggered.connect(self.clearPick)
-        editMenu.addAction(clearPickAction)
-
         modifyManuallyAction = QAction('&Modify manually', self.root)
         modifyManuallyAction.setShortcut('M')
         modifyManuallyAction.triggered.connect(self.modifyManually)
         editMenu.addAction(modifyManuallyAction)
 
+        deleteSceneAction = QAction('&Delete scene', self.root)
+        deleteSceneAction.setShortcut('Delete')
+        deleteSceneAction.triggered.connect(self.deleteScenen)
+        editMenu.addAction(deleteSceneAction)
+
     def show(self):
+        self._sidx = 0
+        self._aidx = 0
+        self._iidx = 0
+        self._pidx = 0
+        self._lidx = 0
         self.update()
 
-    def resizeEvent(self, event):
-        self.update()
+    def setViewMode(self, viewMode):
+        if self._view_mode == viewMode:
+            if self._view_mode == ViewMode.SELECT:
+                self._view_mode = self._last_view_mode
+                self._last_view_mode = ViewMode.SELECT
+                self.update()
+        else:
+            self._last_view_mode = self._view_mode
+            self._view_mode = viewMode
+            self.update()
+
+    def selectImage(self):
+        if self._view_mode == ViewMode.SELECT:
+            self.setViewMode(self._last_view_mode)
+        else:
+            image = self.curImage
+            if image:
+                self._aidx, self._iidx = self.curScene.indexImage(image)
+            self.setViewMode(ViewMode.SELECT)
 
     def showNextImage(self):
         action = self.curAction
         if not action:
             return
-        if self._view_mode == ViewMode.NORMAL:
+        if self._view_mode == ViewMode.SELECT:
             self._iidx += 1
         elif self._view_mode == ViewMode.PICK:
             self._pidx += 1
+            if self.curImage == action.getImage(0):
+                self.showHomeFlag()
         elif self._view_mode == ViewMode.LOVE:
             self._lidx += 1
+            if self.curImage == action.getImage(0):
+                self.showHomeFlag()
         self.update()
 
     def showPrevImage(self):
         action = self.curAction
         if not action:
             return
-        if self._view_mode == ViewMode.NORMAL:
+        if self._view_mode == ViewMode.SELECT:
             self._iidx -= 1
         elif self._view_mode == ViewMode.PICK:
             self._pidx -= 1
+            if self.curImage == action.getImage(0):
+                self.showHomeFlag()
         elif self._view_mode == ViewMode.LOVE:
             self._lidx -= 1
+            if self.curImage == action.getImage(0):
+                self.showHomeFlag()
         self.update()
 
     def showNextAction(self):
-        if self._view_mode == ViewMode.NORMAL:
+        if self._view_mode == ViewMode.SELECT:
             self._aidx += 1
             if self.curAction == self.curScene.getAction(0):
                 self.showHomeFlag()
             self.update()
 
     def showPrevAction(self):
-        if self._view_mode == ViewMode.NORMAL:
+        if self._view_mode == ViewMode.SELECT:
             self._aidx -= 1
             if self.curAction == self.curScene.getAction(0):
                 self.showHomeFlag()
             self.update()
 
     def showNextScene(self):
+        self._view_mode = ViewMode.PICK
         self._sidx += 1
         self._aidx = 0
         self._iidx = 0
@@ -253,6 +284,7 @@ class ImageViewer(Ui_ImageViewer):
         self.update()
 
     def showPrevScene(self):
+        self._view_mode = ViewMode.PICK
         self._sidx -= 1
         self._aidx = 0
         self._iidx = 0
@@ -261,32 +293,32 @@ class ImageViewer(Ui_ImageViewer):
         self.update()
 
     def togglePick(self):
-        pick = self.curPick
         image = self.curImage
+        if not image:
+            return
+        pick = self.curPick
         if pick.isInPick(image):
             pick.delFromPick(image)
+            self._pidx = pick.normalizeImageIdx(self._pidx)
         else:
             pick.addToPick(image)
         self.update()
 
-    def toggleLove(self):
-        love = self.curLove
-        image = self.curImage
-        if love.isInPick(image):
-            love.delFromPick(image)
-        else:
-            love.addToPick(image)
-        self.update()
-
-    def selectImage(self):
-        if self._view_mode != ViewMode.NORMAL:
-            image = self.curImage
-            self._aidx, self._iidx = self.curScene.indexImage(image)
-            self.setViewMode(ViewMode.NORMAL)
-
     def clearPick(self):
         pick = self.curPick
         pick.clear()
+        self.update()
+
+    def toggleLove(self):
+        image = self.curImage
+        if not image:
+            return
+        love = self.curLove
+        if love.isInPick(image):
+            love.delFromPick(image)
+            self._lidx = love.normalizeImageIdx(self._lidx)
+        else:
+            love.addToPick(image)
         self.update()
 
     def repickScene(self, faceNum, debug):
@@ -306,10 +338,20 @@ class ImageViewer(Ui_ImageViewer):
         scene = self.curScene
         sid = scene.getSceneId()
         picker.backupScene(sid)
-        picker.collectScene(sid)
+        picker.collectSceneFromBackup(sid)
         scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
         tmpPath = os.path.join(scenePath, macro.TMP_NAME)
         subprocess.Popen(['explorer', tmpPath])
+        scene.load()
+        self.update()
+
+    def deleteScenen(self):
+        import tools.picker as picker
+        scene = self.curScene
+        sid = scene.getSceneId()
+        picker.backupScene(sid)
+        scene.load()
+        self.update()
 
     def showHomeFlag(self):
         self.home.setVisible(True)
@@ -326,7 +368,7 @@ class ImageViewer(Ui_ImageViewer):
         self._updateImageCtrl()
 
     def _updateActionNum(self):
-        if (self._view_mode == ViewMode.NORMAL and self.isValid()):
+        if (self._view_mode == ViewMode.SELECT and self.isValid()):
             self.actionNum.setText('%d/%d' % (self._aidx + 1,
                                               self.curScene.getActionLen()))
         else:
@@ -364,7 +406,7 @@ class ImageViewer(Ui_ImageViewer):
                 ctrl.selected(False)
             ctrl.star.setVisible(self.curPick.isInPick(face))
             ctrl.circle.setVisible(self.curLove.isInPick(face))
-            if self._view_mode != ViewMode.NORMAL:
+            if self._view_mode != ViewMode.SELECT:
                 while scene.getAction(actionIdx).indexImage(face) is None:
                     actionIdx += 1
                 ctrl.starNum.setText(
@@ -387,8 +429,9 @@ class ImageViewer(Ui_ImageViewer):
         pixmap = QPixmap(image)
         self.img.setPixmap(pixmap)
 
-        pw = pixmap.width()
-        ph = pixmap.height()
+    def _paintImageCtrl(self, event):
+        pw = self.img.pixmap().width()
+        ph = self.img.pixmap().height()
         cw = self.imgFrame.width()
         ch = self.imgFrame.height()
         factor = min(cw / pw, ch / ph)
@@ -396,3 +439,4 @@ class ImageViewer(Ui_ImageViewer):
         iw = self.img.width()
         ih = self.img.height()
         self.img.move(QPoint((cw - iw) / 2, (ch - ih) / 2))
+        QLabel.paintEvent(self.img, event)

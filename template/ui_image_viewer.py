@@ -24,7 +24,7 @@ class Ui_ImageViewer(object):
         self.imgFrame = QtWidgets.QWidget(ImageViewer)
         self.imgFrame.setObjectName("imgFrame")
         self.img = QtWidgets.QLabel(self.imgFrame)
-        self.img.setGeometry(QtCore.QRect(0, 0, 400, 150))
+        self.img.setGeometry(QtCore.QRect(0, 0, 571, 351))
         self.img.setLayoutDirection(QtCore.Qt.LeftToRight)
         self.img.setScaledContents(True)
         self.img.setObjectName("img")

@@ -22,14 +22,16 @@ def collectPickToCG(outPath, CGName):
                 imagePath = os.path.join(actionPath, macro.IMAGE_NAME)
                 for image in os.listdir(imagePath):
                     tasks.append((os.path.join(imagePath, image), spath))
-            elif action == macro.BACKUP_NAME:
-                for image in os.listdir(actionPath):
-                    tasks.append((os.path.join(actionPath, image), apath))
             elif action == macro.LOVE_NAME:
                 imagePath = os.path.join(actionPath, macro.IMAGE_NAME)
                 for image in os.listdir(imagePath):
                     lovename = os.path.join(gpath, "%s-%s" % (CGName, image))
                     tasks.append((os.path.join(imagePath, image), lovename))
+            elif action == macro.BACKUP_NAME:
+                continue
+            elif action == macro.TMP_NAME:
+                for image in os.listdir(actionPath):
+                    tasks.append((os.path.join(actionPath, image), apath))
             else:
                 imagePath = os.path.join(actionPath, macro.IMAGE_NAME)
                 for image in os.listdir(imagePath):
