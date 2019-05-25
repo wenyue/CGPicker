@@ -8,6 +8,7 @@ from template.ui_image_viewer import Ui_ImageViewer
 from ui.face import Face
 from database import data
 from enum import Enum
+import config
 
 
 class ViewMode(Enum):
@@ -25,7 +26,7 @@ class ImageViewer(Ui_ImageViewer):
         self.faceLayout = QHBoxLayout(self.faces)
         self.faceLayout.setSpacing(0)
         self.home.setVisible(False)
-        self.actionNum.setStyleSheet("font-size:30px")
+        self.actionNum.setStyleSheet('font-size:30px')
         self.actionNum.setText('number')
 
         self._faceCtrls = []
@@ -164,7 +165,7 @@ class ImageViewer(Ui_ImageViewer):
         editMenu.addAction(togglePickAction)
 
         clearPickAction = QAction('&Clear pick', self.root)
-        clearPickAction.setShortcut('C')
+        clearPickAction.setShortcut('Delete')
         clearPickAction.triggered.connect(self.clearPick)
         editMenu.addAction(clearPickAction)
 
@@ -196,9 +197,16 @@ class ImageViewer(Ui_ImageViewer):
         editMenu.addAction(modifyManuallyAction)
 
         deleteSceneAction = QAction('&Delete scene', self.root)
-        deleteSceneAction.setShortcut('Delete')
+        deleteSceneAction.setShortcut('Ctrl+Shift+Delete')
         deleteSceneAction.triggered.connect(self.deleteScenen)
         editMenu.addAction(deleteSceneAction)
+
+    def updateWindowTitle(self):
+        CGName = config.get('path', 'CGName')
+        self._sidx = data.normalizeSceneIdx(self._sidx)
+        self.root.window().setWindowTitle(u'CGPicker《%s》 [%d/%d]' %
+                                          (CGName, self._sidx + 1,
+                                           data.getSceneLen()))
 
     def show(self):
         self._sidx = 0
@@ -207,6 +215,7 @@ class ImageViewer(Ui_ImageViewer):
         self._pidx = 0
         self._lidx = 0
         self.update()
+        self.updateWindowTitle()
 
     def setViewMode(self, viewMode):
         if self._view_mode == viewMode:
@@ -282,6 +291,7 @@ class ImageViewer(Ui_ImageViewer):
         self._pidx = 0
         self._lidx = 0
         self.update()
+        self.updateWindowTitle()
 
     def showPrevScene(self):
         self._view_mode = ViewMode.PICK
@@ -291,6 +301,7 @@ class ImageViewer(Ui_ImageViewer):
         self._pidx = 0
         self._lidx = 0
         self.update()
+        self.updateWindowTitle()
 
     def togglePick(self):
         image = self.curImage
@@ -337,8 +348,7 @@ class ImageViewer(Ui_ImageViewer):
         import os
         scene = self.curScene
         sid = scene.getSceneId()
-        picker.backupScene(sid)
-        picker.collectSceneFromBackup(sid)
+        picker.collectScene(sid, force=True)
         scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
         tmpPath = os.path.join(scenePath, macro.TMP_NAME)
         subprocess.Popen(['explorer', tmpPath])

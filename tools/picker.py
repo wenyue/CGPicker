@@ -310,6 +310,15 @@ def pickImagesToTmp(sid, actions):
         picks.append(pick)
 
 
+def genScenes(path):
+    fnames = [fname for fname in os.listdir(path)]
+    fnames.sort()
+    images = [os.path.join(path, fname) for fname in fnames]
+    images = [loadImage(fname) for fname in images if util.isImage(fname)]
+    scenes = util.groupby(isSameScene, images)
+    return scenes
+
+
 def pickScene(sid, images, faces):
     actions = util.groupby(lambda li, ri: isSameAction(li, ri, faces), images)
     copyImagesToTmp(sid, actions)
@@ -319,17 +328,61 @@ def pickScene(sid, images, faces):
 
 def pickCGToTmp(path):
     util.remove(macro.TMP_NAME)
-    fnames = [fname for fname in os.listdir(path)]
-    fnames.sort()
-    images = [os.path.join(path, fname) for fname in fnames]
-    images = [loadImage(fname) for fname in images if util.isImage(fname)]
-    scenes = util.groupby(isSameScene, images)
+    scenes = genScenes(path)
 
     yield len(scenes)
 
     for sid, images in enumerate(scenes):
         faces = calFaceRegions(images)
         pickScene(sid, images, faces)
+        yield 'picking: %d/%d' % (sid + 1, len(scenes))
+
+
+def pickImagesToTmpFromLove(sid, actions, picks, loves):
+    for action in actions:
+        for img in action:
+            if os.path.basename(img.imagename) in picks:
+                imagePath = os.path.join(macro.TMP_NAME,
+                                         '%04d/%s/%s' % (sid, macro.PICK_NAME,
+                                                         macro.IMAGE_NAME))
+                util.copy(img.imagename, imagePath)
+                facePath = os.path.join(macro.TMP_NAME,
+                                        '%04d/%s/%s' % (sid, macro.PICK_NAME,
+                                                        macro.FACE_NAME))
+                util.copy(img.facename, facePath)
+
+        for img in action:
+            if os.path.basename(img.imagename) in loves:
+                imagePath = os.path.join(macro.TMP_NAME,
+                                         '%04d/%s/%s' % (sid, macro.LOVE_NAME,
+                                                         macro.IMAGE_NAME))
+                util.copy(img.imagename, imagePath)
+                facePath = os.path.join(macro.TMP_NAME,
+                                        '%04d/%s/%s' % (sid, macro.LOVE_NAME,
+                                                        macro.FACE_NAME))
+                util.copy(img.facename, facePath)
+
+
+def pickLoveToTmp(outPath, lovePath, CGName):
+    util.remove(macro.TMP_NAME)
+    scenes = genScenes(os.path.join(lovePath, macro.ALL_NAME))
+
+    yield len(scenes)
+
+    picks = set(
+        fname
+        for fname in os.listdir(os.path.join(lovePath, macro.SAMPLE_NAME)))
+    loves = set(
+        fname[len(CGName) + 1:]
+        for fname in os.listdir(os.path.join(outPath, macro.GREATEST_NAME))
+        if fname.startswith(CGName))
+    for sid, images in enumerate(scenes):
+        faces = calFaceRegions(images)
+        actions = util.groupby(lambda li, ri: isSameAction(li, ri, faces),
+                               images)
+        copyImagesToTmp(sid, actions)
+        genFaceToTmp(sid, actions, faces)
+        pickImagesToTmpFromLove(sid, actions, picks, loves)
         yield 'picking: %d/%d' % (sid + 1, len(scenes))
 
 
@@ -341,23 +394,10 @@ def clearScene(sid):
             util.remove(actionPath)
 
 
-def collectScene(sid):
-    scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
-    tmpPath = os.path.join(scenePath, macro.TMP_NAME)
-    if not os.path.exists(tmpPath):
-        for action in os.listdir(scenePath):
-            actionPath = os.path.join(scenePath, action)
-            if action not in (macro.PICK_NAME, macro.LOVE_NAME):
-                imagePath = os.path.join(actionPath, macro.IMAGE_NAME)
-                for image in os.listdir(imagePath):
-                    util.copy(os.path.join(imagePath, image), tmpPath)
-    clearScene(sid)
-
-
-def backupScene(sid):
+def backupScene(sid, force=False):
     scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
     backupPath = os.path.join(scenePath, macro.BACKUP_NAME)
-    if not os.path.exists(backupPath):
+    if not os.path.exists(backupPath) or force:
         for action in os.listdir(scenePath):
             actionPath = os.path.join(scenePath, action)
             if action not in (macro.PICK_NAME, macro.LOVE_NAME):
@@ -367,12 +407,14 @@ def backupScene(sid):
     clearScene(sid)
 
 
-def collectSceneFromBackup(sid):
+def collectScene(sid, force=False):
+    backupScene(sid)
     scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
     tmpPath = os.path.join(scenePath, macro.TMP_NAME)
-    backupPath = os.path.join(scenePath, macro.BACKUP_NAME)
-    util.remove(tmpPath)
-    shutil.copytree(backupPath, tmpPath)
+    if not os.path.exists(tmpPath) or force:
+        backupPath = os.path.join(scenePath, macro.BACKUP_NAME)
+        util.remove(tmpPath)
+        shutil.copytree(backupPath, tmpPath)
 
 
 def repickScene(sid, faceNum, debug):

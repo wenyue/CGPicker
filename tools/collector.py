@@ -10,10 +10,23 @@ def collectPickToCG(outPath, CGName):
     if not os.path.exists(macro.TMP_NAME):
         return
 
-    tasks = []
-    apath = os.path.join(outPath, CGName, macro.ALL_NAME)
-    spath = os.path.join(outPath, CGName, macro.SAMPLE_NAME)
+    CGPath = os.path.join(outPath, CGName)
+    apath = os.path.join(CGPath, macro.ALL_NAME)
+    spath = os.path.join(CGPath, macro.SAMPLE_NAME)
     gpath = os.path.join(outPath, macro.GREATEST_NAME)
+
+    for fname in os.listdir(outPath):
+        index = fname.rfind('[')
+        if (index == -1 and fname == CGName) or (index != -1
+                                                 and fname[0:index] == CGName):
+            util.remove(os.path.join(outPath, fname))
+            break
+
+    for fname in os.listdir(gpath):
+        if fname.startswith("%s-" % CGName):
+            os.remove(os.path.join(gpath, fname))
+
+    tasks = []
     for scene in os.listdir(macro.TMP_NAME):
         scenePath = os.path.join(macro.TMP_NAME, scene)
         for action in os.listdir(scenePath):
@@ -30,8 +43,7 @@ def collectPickToCG(outPath, CGName):
             elif action == macro.BACKUP_NAME:
                 continue
             elif action == macro.TMP_NAME:
-                for image in os.listdir(actionPath):
-                    tasks.append((os.path.join(actionPath, image), apath))
+                continue
             else:
                 imagePath = os.path.join(actionPath, macro.IMAGE_NAME)
                 for image in os.listdir(imagePath):

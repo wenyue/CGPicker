@@ -15,7 +15,6 @@ class CGPicker(Ui_CGPicker):
     def __init__(self, *args, **kwargs):
         self.root = QMainWindow(*args, **kwargs)
         self.setupUi(self.root)
-        self.root.setWindowTitle('CGPicker')
 
         self.addSubPanel()
         self.setupMainMenu()
@@ -36,13 +35,18 @@ class CGPicker(Ui_CGPicker):
         importAction.triggered.connect(self.pickCGToTmp)
         fileMenu.addAction(importAction)
 
+        importAction = QAction('&Import from love', self.root)
+        importAction.setShortcut('Ctrl+Shift+I')
+        importAction.triggered.connect(self.pickLoveToTmp)
+        fileMenu.addAction(importAction)
+
         exportAction = QAction('&Export', self.root)
         exportAction.setShortcut('Ctrl+O')
         exportAction.triggered.connect(self.collectPickToCG)
         fileMenu.addAction(exportAction)
 
         convertAction = QAction('&Convert images', self.root)
-        convertAction.setShortcut('Ctrl+C')
+        convertAction.setShortcut('Ctrl+F')
         convertAction.triggered.connect(self.convertImages)
         fileMenu.addAction(convertAction)
 
@@ -55,8 +59,8 @@ class CGPicker(Ui_CGPicker):
 
         windowMenu = menubar.addMenu('&Window')
 
-        CGPickerConfigAction = QAction('&Adjust pick factor', self.root)
-        CGPickerConfigAction.setShortcut('Ctrl+A')
+        CGPickerConfigAction = QAction('&Change pick factor', self.root)
+        CGPickerConfigAction.setShortcut('`')
         CGPickerConfigAction.triggered.connect(self.CGPickerConfig.toggle)
         windowMenu.addAction(CGPickerConfigAction)
 
@@ -71,15 +75,34 @@ class CGPicker(Ui_CGPicker):
         if not CGPath:
             return
         config.set('path', 'input', CGPath)
+        config.set('path', 'CGName', os.path.basename(CGPath))
         self.createLoading(lambda: convertImages(CGPath))
+        self.CGPickerConfig.reloadMacro()
         self.createLoading(lambda: pickCGToTmp(CGPath))
+        data.loadDataFromTmp()
+        self.imageViewer.show()
+
+    def pickLoveToTmp(self):
+        from tools.picker import pickLoveToTmp
+        outPath = config.get('path', 'output')
+        lovePath = QFileDialog.getExistingDirectory(
+            self.root, 'choose directory', outPath)
+        if not lovePath:
+            return
+        index = lovePath.rfind('[')
+        if index == -1:
+            CGName = os.path.basename(lovePath)
+        else:
+            CGName = os.path.basename(lovePath[0:index])
+        config.set('path', 'CGName', CGName)
+        self.CGPickerConfig.reloadMacro()
+        self.createLoading(lambda: pickLoveToTmp(outPath, lovePath, CGName))
         data.loadDataFromTmp()
         self.imageViewer.show()
 
     def collectPickToCG(self):
         from tools.collector import collectPickToCG
-        CGPath = config.get('path', 'input')
-        CGName = os.path.basename(CGPath)
+        CGName = config.get('path', 'CGName')
         outPath = config.get('path', 'output')
         self.createLoading(lambda: collectPickToCG(outPath, CGName))
 

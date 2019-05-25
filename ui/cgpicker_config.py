@@ -45,3 +45,9 @@ class CGPickerConfig(Ui_CGPickerConfig):
         self.faceMinSize.setValue(macro.FACE_MIN_SIZE)
         macro.FACE_MAX_SIZE = max(macro.FACE_MAX_SIZE, macro.FACE_BEST_SIZE)
         self.faceMaxSize.setValue(macro.FACE_MAX_SIZE)
+
+    def reloadMacro(self):
+        from importlib import reload
+        reload(macro)
+        for macroName, ctrl in self._macroList:
+            ctrl.setValue(getattr(macro, macroName))

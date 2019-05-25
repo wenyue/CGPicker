@@ -4,7 +4,6 @@
 import os
 import util
 import macro
-from tools.picker import repickScene
 
 
 class Action(object):
@@ -94,16 +93,10 @@ class Pick(Action):
 class Scene(object):
     def __init__(self, path):
         self._path = path
-        self.repick()
         self.load()
 
     def getSceneId(self):
         return int(os.path.basename(self._path))
-
-    def repick(self):
-        tmpPath = os.path.join(self._path, macro.TMP_NAME)
-        if os.path.exists(tmpPath):
-            repickScene(self.getSceneId(), 1, False)
 
     def load(self):
         self._actions = []
@@ -166,6 +159,9 @@ class Database(object):
             return index % max(len(self._scenes), 1)
         else:
             return min(max(index, 0), max(len(self._scenes) - 1, 0))
+
+    def getSceneLen(self):
+        return len(self._scenes)
 
 
 data = Database()
