@@ -2,18 +2,19 @@
 # -*- coding: utf-8 -*-
 
 from PIL import Image
+from functools import reduce
 import os
 import random
 import math
 import copy
-from functools import reduce
+import json
 import shutil
 
 if __name__ == '__main__':
     import sys
     sys.path.append('../')
 
-import util  # noqa
+import utils  # noqa
 import macro  # noqa
 
 
@@ -242,51 +243,7 @@ def isSameAction(li, ri, faces):
     return True
 
 
-def copyImagesToTmp(sid, actions):
-    for aid, action in enumerate(actions):
-        for img in action:
-            imagePath = os.path.join(macro.TMP_NAME, '%04d/%02d/%s' %
-                                     (sid, aid, macro.IMAGE_NAME))
-            img.imagename = os.path.join(imagePath,
-                                         os.path.basename(img.filename))
-            util.copy(img.filename, imagePath)
-
-
-def genFaceToTmp(sid, actions, faces):
-    w, h = actions[0][0].size
-    faces = [convertRegion(face, w, h) for face in faces]
-    for idx, face in enumerate(faces.copy()):
-        faces[idx] = tuple(int(val / macro.NORMALIZE_SCALE) for val in face)
-    totalW = 0
-    maxH = 0
-    offsets = []
-    for face in faces:
-        left, right, top, bottom = face
-        width = right - left + 1
-        height = bottom - top + 1
-        offsets.append((totalW, height))
-        totalW += width
-        maxH = max(maxH, height)
-    for aid, action in enumerate(actions):
-        for img in action:
-            facePath = os.path.join(macro.TMP_NAME, '%04d/%02d/%s' %
-                                    (sid, aid, macro.FACE_NAME))
-            os.makedirs(facePath, exist_ok=True)
-            basename = os.path.basename(img.filename)
-            facename = os.path.join(facePath, basename)
-            img.facename = facename
-            image = Image.open(img.filename)
-            faceImg = Image.new('RGB', (totalW, maxH), (255, 255, 255))
-            for offset, face in zip(offsets, faces):
-                left, right, top, bottom = face
-                w, h = offset
-                faceImg.paste(
-                    image.crop((left, top, right, bottom)), (w,
-                                                             (maxH - h) // 2))
-                faceImg.save(facename)
-
-
-def pickImagesToTmp(sid, actions):
+def generatePicks(actions):
     picks = []
     for action in actions:
         if picks:
@@ -300,137 +257,62 @@ def pickImagesToTmp(sid, actions):
             _, pick = min(zip(values, imgs), key=lambda x: x[0])
         else:
             pick = random.choice(action) if random.randint(0, 1) else action[0]
-
-        imagePath = os.path.join(macro.TMP_NAME, '%04d/%s/%s' %
-                                 (sid, macro.PICK_NAME, macro.IMAGE_NAME))
-        util.copy(pick.imagename, imagePath)
-        facePath = os.path.join(macro.TMP_NAME, '%04d/%s/%s' %
-                                (sid, macro.PICK_NAME, macro.FACE_NAME))
-        util.copy(pick.facename, facePath)
         picks.append(pick)
+    return picks
+
+
+def generateSceneProto(faces, actions, picks):
+    actionProto = [[os.path.basename(img.filename) for img in action]
+                   for action in actions]
+    pickProto = [os.path.basename(img.filename) for img in picks]
+    w, h = actions[0][0].size
+    faceProto = []
+    for face in faces:
+        left, right, top, bottom = convertRegion(face, w, h)
+        faceProto.append([
+            int(val / macro.NORMALIZE_SCALE)
+            for val in (left, top, right, bottom)
+        ])
+    return {
+        'rating': 0,
+        'actions': actionProto,
+        'pick': pickProto,
+        'love': [],
+        'faces': faceProto,
+    }
 
 
 def genScenes(path):
-    fnames = [fname for fname in os.listdir(path)]
-    fnames.sort()
+    fnames = [fname for fname in sorted(os.listdir(path))]
     images = [os.path.join(path, fname) for fname in fnames]
-    images = [loadImage(fname) for fname in images if util.isImage(fname)]
-    scenes = util.groupby(isSameScene, images)
+    images = [loadImage(fname) for fname in images if utils.isImage(fname)]
+    scenes = utils.groupby(isSameScene, images)
     return scenes
 
 
-def pickScene(sid, images, faces):
-    actions = util.groupby(lambda li, ri: isSameAction(li, ri, faces), images)
-    copyImagesToTmp(sid, actions)
-    genFaceToTmp(sid, actions, faces)
-    pickImagesToTmp(sid, actions)
-
-
-def pickCGToTmp(path):
-    util.remove(macro.TMP_NAME)
+def pickCG(path):
+    utils.remove(macro.TMP_NAME)
     scenes = genScenes(path)
 
     yield len(scenes)
 
+    proto = []
     for sid, images in enumerate(scenes):
         faces = calFaceRegions(images)
-        pickScene(sid, images, faces)
+        actions = utils.groupby(lambda li, ri: isSameAction(li, ri, faces),
+                                images)
+        picks = generatePicks(actions)
+        proto.append(generateSceneProto(faces, actions, picks))
         yield 'picking: %d/%d' % (sid + 1, len(scenes))
 
-
-def pickImagesToTmpFromLove(sid, actions, picks, loves):
-    for action in actions:
-        for img in action:
-            if os.path.basename(img.imagename) in picks:
-                imagePath = os.path.join(macro.TMP_NAME,
-                                         '%04d/%s/%s' % (sid, macro.PICK_NAME,
-                                                         macro.IMAGE_NAME))
-                util.copy(img.imagename, imagePath)
-                facePath = os.path.join(macro.TMP_NAME,
-                                        '%04d/%s/%s' % (sid, macro.PICK_NAME,
-                                                        macro.FACE_NAME))
-                util.copy(img.facename, facePath)
-
-        for img in action:
-            if os.path.basename(img.imagename) in loves:
-                imagePath = os.path.join(macro.TMP_NAME,
-                                         '%04d/%s/%s' % (sid, macro.LOVE_NAME,
-                                                         macro.IMAGE_NAME))
-                util.copy(img.imagename, imagePath)
-                facePath = os.path.join(macro.TMP_NAME,
-                                        '%04d/%s/%s' % (sid, macro.LOVE_NAME,
-                                                        macro.FACE_NAME))
-                util.copy(img.facename, facePath)
+    filename = os.path.join(path, macro.DATABASE_FILE)
+    with open(filename, 'w') as f:
+        json.dump(proto, f, indent=2, sort_keys=True)
 
 
-def pickLoveToTmp(outPath, lovePath, CGName):
-    util.remove(macro.TMP_NAME)
-    scenes = genScenes(os.path.join(lovePath, macro.ALL_NAME))
-
-    yield len(scenes)
-
-    picks = set(
-        fname
-        for fname in os.listdir(os.path.join(lovePath, macro.SAMPLE_NAME)))
-    loves = set(
-        fname[len(CGName) + 1:]
-        for fname in os.listdir(os.path.join(outPath, macro.GREATEST_NAME))
-        if fname.startswith(CGName))
-    for sid, images in enumerate(scenes):
-        faces = calFaceRegions(images)
-        actions = util.groupby(lambda li, ri: isSameAction(li, ri, faces),
-                               images)
-        copyImagesToTmp(sid, actions)
-        genFaceToTmp(sid, actions, faces)
-        pickImagesToTmpFromLove(sid, actions, picks, loves)
-        yield 'picking: %d/%d' % (sid + 1, len(scenes))
-
-
-def clearScene(sid):
-    scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
-    for action in os.listdir(scenePath):
-        actionPath = os.path.join(scenePath, action)
-        if action not in (macro.TMP_NAME, macro.BACKUP_NAME):
-            util.remove(actionPath)
-
-
-def backupScene(sid, force=False):
-    scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
-    backupPath = os.path.join(scenePath, macro.BACKUP_NAME)
-    if not os.path.exists(backupPath) or force:
-        for action in os.listdir(scenePath):
-            actionPath = os.path.join(scenePath, action)
-            if action not in (macro.PICK_NAME, macro.LOVE_NAME):
-                imagePath = os.path.join(actionPath, macro.IMAGE_NAME)
-                for image in os.listdir(imagePath):
-                    util.copy(os.path.join(imagePath, image), backupPath)
-    clearScene(sid)
-
-
-def collectScene(sid, force=False):
-    backupScene(sid)
-    scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
-    tmpPath = os.path.join(scenePath, macro.TMP_NAME)
-    if not os.path.exists(tmpPath) or force:
-        backupPath = os.path.join(scenePath, macro.BACKUP_NAME)
-        util.remove(tmpPath)
-        shutil.copytree(backupPath, tmpPath)
-
-
-def repickScene(sid, faceNum, debug):
-    collectScene(sid)
-    scenePath = os.path.join(macro.TMP_NAME, '%04d' % sid)
-    tmpPath = os.path.join(scenePath, macro.TMP_NAME)
-    fnames = [fname for fname in os.listdir(tmpPath)]
-    if len(fnames):
-        fnames.sort()
-        images = [os.path.join(tmpPath, fname) for fname in fnames]
-        images = [loadImage(fname) for fname in images if util.isImage(fname)]
-        faces = calFaceRegions(images, faceNum, debug)
-        pickScene(sid, images, faces)
-    util.remove(tmpPath)
-
-
-if __name__ == '__main__':
-    pickCGToTmp('test')
-    repickScene(1, True)
+def repickScene(images, faceNum, debug):
+    images = [loadImage(fname) for fname in images if utils.isImage(fname)]
+    faces = calFaceRegions(images, faceNum, debug)
+    actions = utils.groupby(lambda li, ri: isSameAction(li, ri, faces), images)
+    picks = generatePicks(actions)
+    return generateSceneProto(faces, actions, picks)

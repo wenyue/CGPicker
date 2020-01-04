@@ -2,119 +2,140 @@
 # -*- coding: utf-8 -*-
 
 import os
-import util
+import json
+import shutil
 import macro
+import utils
 
 
 class Action(object):
-    def __init__(self, path):
-        self._path = path
-        self._imagepath = os.path.join(self._path, macro.IMAGE_NAME)
-        self._facepath = os.path.join(self._path, macro.FACE_NAME)
-        self.load()
+    def __init__(self, CGRoot, actionProto):
+        self._CGRoot = CGRoot
+        self._fnames = actionProto
 
-    def load(self):
-        if os.path.exists(self._imagepath):
-            self._fnames = [fname for fname in os.listdir(self._imagepath)]
-            self._fnames.sort()
-        else:
-            self._fnames = []
-        self.refresh()
+    def serialize(self):
+        return self._fnames
 
-    def refresh(self):
-        self._images = [
-            os.path.join(self._imagepath, fname) for fname in self._fnames
-        ]
-        self._faces = [
-            os.path.join(self._facepath, fname) for fname in self._fnames
-        ]
+    def renameImage(self, imagePath, toName):
+        index = self.indexImage(imagePath)
+        if index is not None:
+            self._fnames[index] = toName
 
-    def indexImage(self, image):
-        fname = os.path.basename(image)
+    def indexImage(self, imagePath):
+        fname = os.path.basename(imagePath)
         try:
             index = self._fnames.index(fname)
         except ValueError:
             index = None
         return index
 
+    def hasImage(self, imagePath):
+        fname = os.path.basename(imagePath)
+        return fname in self._fnames
+
     def getImage(self, index):
-        return self._images[index] if index < len(self._images) else None
+        return os.path.join(
+            self._CGRoot,
+            self._fnames[index]) if index < len(self._fnames) else None
 
-    def getImages(self):
-        return self._images.copy()
-
-    def getFaces(self):
-        return self._faces.copy()
-
-    def getFaceByImage(self, imagepath):
-        fname = os.path.basename(imagepath)
-        parentPath = os.path.dirname(os.path.dirname(imagepath))
-        return os.path.join(parentPath, macro.FACE_NAME, fname)
+    def getImageNum(self):
+        return len(self._fnames)
 
     def normalizeImageIdx(self, index, loop=False):
         if loop:
-            return index % max(len(self._images), 1)
+            return index % max(len(self._fnames), 1)
         else:
-            return min(max(index, 0), max(len(self._images) - 1, 0))
+            return min(max(index, 0), max(len(self._fnames) - 1, 0))
 
 
 class Pick(Action):
     def clear(self):
-        for image in self._images.copy():
-            self.delFromPick(image)
+        self._fnames.clear()
 
-    def isInPick(self, imagepath):
-        fname = os.path.basename(imagepath)
-        return fname in self._fnames
-
-    def addToPick(self, imagepath):
-        if self.isInPick(imagepath):
+    def addImage(self, imagePath):
+        if self.hasImage(imagePath):
             return
-        fname = os.path.basename(imagepath)
+        fname = os.path.basename(imagePath)
         self._fnames.append(fname)
         self._fnames.sort()
-        util.copy(imagepath, self._imagepath)
-        facepath = self.getFaceByImage(imagepath)
-        util.copy(facepath, self._facepath)
-        self.refresh()
 
-    def delFromPick(self, imagepath):
-        if not self.isInPick(imagepath):
+    def delImage(self, imagePath):
+        if not self.hasImage(imagePath):
             return
-        fname = os.path.basename(imagepath)
+        fname = os.path.basename(imagePath)
         self._fnames.remove(fname)
-        imagepath = os.path.join(self._imagepath, fname)
-        os.remove(imagepath)
-        facepath = os.path.join(self._facepath, fname)
-        os.remove(facepath)
-        self.refresh()
+
+
+class Face(object):
+    def __init__(self, faceProto):
+        self.x = faceProto[0]
+        self.y = faceProto[1]
+        self.z = faceProto[2]
+        self.w = faceProto[3]
+
+    def serialize(self):
+        return [self.x, self.y, self.z, self.w]
+
+    @property
+    def width(self):
+        return self.z - self.x + 1
+
+    @property
+    def height(self):
+        return self.w - self.y + 1
 
 
 class Scene(object):
-    def __init__(self, path):
-        self._path = path
-        self.load()
+    def __init__(self, CGRoot, sceneProto):
+        self._CGRoot = CGRoot
+        self.load(sceneProto)
 
-    def getSceneId(self):
-        return int(os.path.basename(self._path))
+    def load(self, sceneProto):
+        self._rating = sceneProto['rating']
+        self._actions = [
+            Action(self._CGRoot, actionProto)
+            for actionProto in sceneProto['actions']
+        ]
+        self._pick = Pick(self._CGRoot, sceneProto['pick'])
+        self._love = Pick(self._CGRoot, sceneProto['love'])
+        self._faces = [Face(faceProto) for faceProto in sceneProto['faces']]
 
-    def load(self):
-        self._actions = []
-        for dirname in os.listdir(self._path):
-            if dirname in (macro.PICK_NAME, macro.LOVE_NAME,
-                           macro.BACKUP_NAME):
-                continue
-            actionPath = os.path.join(self._path, dirname)
-            self._actions.append(Action(actionPath))
-        pickPath = os.path.join(self._path, macro.PICK_NAME)
-        self._pick = Pick(pickPath)
-        lovePath = os.path.join(self._path, macro.LOVE_NAME)
-        self._love = Pick(lovePath)
+    def serialize(self):
+        return {
+            'rating': self.getRating(),
+            'actions': [action.serialize() for action in self._actions],
+            'pick': self._pick.serialize(),
+            'love': self._love.serialize(),
+            'faces': [face.serialize() for face in self._faces],
+        }
+
+    def normalizeImages(self, imageIndex):
+        for action in self._actions:
+            for idx in range(action.getImageNum()):
+                image = action.getImage(idx)
+                _, extend = os.path.splitext(image)
+                toName = '%04d%s' % (imageIndex, extend)
+                imageIndex += 1
+                if (os.path.basename(image) == toName):
+                    continue
+                action.renameImage(image, toName)
+                self._pick.renameImage(image, toName)
+                self._love.renameImage(image, toName)
+                toImage = os.path.join(self._CGRoot, macro.TMP_NAME, toName)
+                os.makedirs(os.path.join(self._CGRoot, macro.TMP_NAME), exist_ok=True)
+                shutil.move(image, toImage)
+        return imageIndex
+
+    def getImages(self):
+        return [
+            action.getImage(idx)
+            for action in self._actions for idx in range(action.getImageNum())
+        ]
 
     def getAction(self, index):
         return self._actions[index] if index < len(self._actions) else None
 
-    def getActionLen(self):
+    def getActionNum(self):
         return len(self._actions)
 
     def getPick(self):
@@ -123,10 +144,22 @@ class Scene(object):
     def getLove(self):
         return self._love
 
-    def indexImage(self, image):
-        aidx, iidx = next(((aidx, action.indexImage(image))
+    def getFaces(self):
+        return self._faces
+
+    def getRating(self):
+        return 0 if self._love.getImageNum() == 0 else self._rating
+
+    def getRawRating(self):
+        return self._rating
+
+    def setRating(self, rating):
+        self._rating = rating
+
+    def indexImage(self, imagePath):
+        aidx, iidx = next(((aidx, action.indexImage(imagePath))
                            for aidx, action in enumerate(self._actions)
-                           if action.indexImage(image) is not None),
+                           if action.indexImage(imagePath) is not None),
                           (None, None))
         return aidx, iidx
 
@@ -139,17 +172,60 @@ class Scene(object):
 
 class Database(object):
     def __init__(self):
+        self._CGRoot= None
         self._scenes = []
-        self.loadDataFromTmp()
 
-    def loadDataFromTmp(self):
+    def loadDatabase(self, CGRoot):
+        self._CGRoot = None
         self._scenes = []
-        if not os.path.exists(macro.TMP_NAME):
+        filename = os.path.join(CGRoot, macro.DATABASE_FILE)
+        if not os.path.isfile(filename):
             return
-        for dirname in os.listdir(macro.TMP_NAME):
-            dirpath = os.path.join(macro.TMP_NAME, dirname)
-            scene = Scene(dirpath)
+        self._CGRoot = CGRoot
+        with open(filename, 'r') as f:
+            proto = json.load(f)
+        for sceneProto in proto:
+            scene = Scene(CGRoot, sceneProto)
             self._scenes.append(scene)
+
+    def save(self):
+        if self._CGRoot is None:
+            return
+        proto = [scene.serialize() for scene in self._scenes]
+        filename = os.path.join(self._CGRoot, macro.DATABASE_FILE)
+        with open(filename, 'w') as f:
+            json.dump(proto, f, indent=2, sort_keys=True)
+
+    def flush(self):
+        if self._CGRoot is None:
+            return
+        # Get image set
+        images = []
+        for scene in self._scenes:
+            images += scene.getImages()
+        fnames = set(os.path.basename(image) for image in images)
+        # Delete images not in image set
+        for fname in os.listdir(self._CGRoot):
+            filename = os.path.join(self._CGRoot, fname)
+            if utils.isImage(filename) and fname not in fnames:
+                os.remove(filename)
+        # Rename images
+        imageIndex = 0
+        for scene in self._scenes:
+            imageIndex = scene.normalizeImages(imageIndex)
+        tpath = os.path.join(self._CGRoot, macro.TMP_NAME)
+        if os.path.exists(tpath):
+            for fname in os.listdir(tpath):
+                shutil.move(os.path.join(tpath, fname), self._CGRoot)
+            os.rmdir(tpath)
+        # Save database
+        self.save()
+
+    def getCGName(self):
+        return os.path.basename(self._CGRoot)
+
+    def delScene(self, scene):
+        self._scenes.remove(scene)
 
     def getScene(self, index):
         return self._scenes[index] if index < len(self._scenes) else None
@@ -160,7 +236,7 @@ class Database(object):
         else:
             return min(max(index, 0), max(len(self._scenes) - 1, 0))
 
-    def getSceneLen(self):
+    def getSceneNum(self):
         return len(self._scenes)
 
 

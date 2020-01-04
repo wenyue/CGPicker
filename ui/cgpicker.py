@@ -1,127 +1,155 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
+import os
+
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, qApp, QAction
 from template.ui_cgpicker import Ui_CGPicker
+
 from ui.image_viewer import ImageViewer
 from ui.cgpicker_config import CGPickerConfig
 from ui.loading import Loading
 from database import data
 import config
-import os
+import macro
 
 
-class CGPicker(Ui_CGPicker):
+class CGPicker(QMainWindow, Ui_CGPicker):
     def __init__(self, *args, **kwargs):
-        self.root = QMainWindow(*args, **kwargs)
-        self.setupUi(self.root)
+        super(CGPicker, self).__init__(*args, **kwargs)
+        self.setupUi(self)
 
-        self.addSubPanel()
         self.setupMainMenu()
+        self.addSubPanel()
 
     def addSubPanel(self):
-        self.imageViewer = ImageViewer()
-        self.horizontalLayout.addWidget(self.imageViewer.root)
+        windowMenu = self.menubar.addMenu('&Window')
 
-        self.CGPickerConfig = CGPickerConfig()
-        self.horizontalLayout.addWidget(self.CGPickerConfig.root)
+        self.imageViewer = ImageViewer(self.menubar)
+        self.imageViewer.setupMainMenu(self.menubar)
+        self.horizontalLayout.addWidget(self.imageViewer)
+
+        self.CGPickerConfig = CGPickerConfig(self.menubar)
+        self.CGPickerConfig.setupMainMenu(windowMenu)
+        self.horizontalLayout.addWidget(self.CGPickerConfig)
 
     def setupMainMenu(self):
         menubar = self.menubar
         fileMenu = menubar.addMenu('&File')
 
-        importAction = QAction('&Import', self.root)
+        importAction = QAction('&Import', self)
         importAction.setShortcut('Ctrl+I')
-        importAction.triggered.connect(self.pickCGToTmp)
+        importAction.triggered.connect(self.pickCG)
         fileMenu.addAction(importAction)
 
-        importAction = QAction('&Import from love', self.root)
-        importAction.setShortcut('Ctrl+Shift+I')
-        importAction.triggered.connect(self.pickLoveToTmp)
-        fileMenu.addAction(importAction)
-
-        exportAction = QAction('&Export', self.root)
+        exportAction = QAction('&Export', self)
         exportAction.setShortcut('Ctrl+O')
         exportAction.triggered.connect(self.collectPickToCG)
         fileMenu.addAction(exportAction)
 
-        convertAction = QAction('&Convert images', self.root)
-        convertAction.setShortcut('Ctrl+F')
+        fileMenu.addSeparator()
+
+        formatAction = QAction('&Format Image names', self)
+        formatAction.triggered.connect(self.formatImageNames)
+        fileMenu.addAction(formatAction)
+
+        upscaleAction = QAction('&Upscale Images', self)
+        upscaleAction.triggered.connect(self.upscaleImages)
+        fileMenu.addAction(upscaleAction);
+
+        convertAction = QAction('&Convert Images', self)
         convertAction.triggered.connect(self.convertImages)
         fileMenu.addAction(convertAction)
 
         fileMenu.addSeparator()
 
-        quitAction = QAction('&Quit', self.root)
-        quitAction.setShortcut('Ctrl+Q')
-        quitAction.triggered.connect(qApp.quit)
+        quitAction = QAction('&Quit', self)
+        quitAction.setShortcut('Esc')
+        quitAction.triggered.connect(self.quit)
         fileMenu.addAction(quitAction)
 
-        windowMenu = menubar.addMenu('&Window')
-
-        CGPickerConfigAction = QAction('&Change pick factor', self.root)
-        CGPickerConfigAction.setShortcut('`')
-        CGPickerConfigAction.triggered.connect(self.CGPickerConfig.toggle)
-        windowMenu.addAction(CGPickerConfigAction)
-
-        self.imageViewer.setupMainMenu(menubar)
-
-    def pickCGToTmp(self):
-        from tools.picker import pickCGToTmp
+    def pickCG(self):
+        from tools.name_formater import formatImageNames
+        from tools.upscaler import upscaleImages
         from tools.converter import convertImages
-        lastCGPath = config.get('path', 'input')
-        CGPath = QFileDialog.getExistingDirectory(
-            self.root, 'choose directory', lastCGPath)
-        if not CGPath:
+        from tools.picker import pickCG
+        lastCGRoot = config.get('path', 'input')
+        CGRoot = QFileDialog.getExistingDirectory(self, 'Pick CG',
+                                                  lastCGRoot)
+        if not CGRoot:
             return
-        config.set('path', 'input', CGPath)
-        config.set('path', 'CGName', os.path.basename(CGPath))
-        self.createLoading(lambda: convertImages(CGPath))
-        self.CGPickerConfig.reloadMacro()
-        self.createLoading(lambda: pickCGToTmp(CGPath))
-        data.loadDataFromTmp()
-        self.imageViewer.show()
 
-    def pickLoveToTmp(self):
-        from tools.picker import pickLoveToTmp
-        outPath = config.get('path', 'output')
-        lovePath = QFileDialog.getExistingDirectory(
-            self.root, 'choose directory', outPath)
-        if not lovePath:
-            return
-        index = lovePath.rfind('[')
-        if index == -1:
-            CGName = os.path.basename(lovePath)
-        else:
-            CGName = os.path.basename(lovePath[0:index])
-        config.set('path', 'CGName', CGName)
-        self.CGPickerConfig.reloadMacro()
-        self.createLoading(lambda: pickLoveToTmp(outPath, lovePath, CGName))
-        data.loadDataFromTmp()
-        self.imageViewer.show()
+        if not os.path.isfile(os.path.join(CGRoot, macro.DATABASE_FILE)):
+            from importlib import reload
+            reload(macro)
+            self.CGPickerConfig.reloadMacro()
+            formatImageNames(CGRoot)
+            self.createLoading(lambda: upscaleImages(CGRoot))
+            self.createLoading(lambda: convertImages(CGRoot))
+            self.createLoading(lambda: pickCG(CGRoot))
+
+        config.set('path', 'input', CGRoot)
+        data.loadDatabase(CGRoot)
+        self.imageViewer.refresh()
 
     def collectPickToCG(self):
         from tools.collector import collectPickToCG
-        CGName = config.get('path', 'CGName')
+        data.flush()
+        CGRoot = config.get('path', 'input')
         outPath = config.get('path', 'output')
-        self.createLoading(lambda: collectPickToCG(outPath, CGName))
+        newCGRoot = os.path.join(outPath, os.path.basename(CGRoot))
+        if (os.path.isdir(newCGRoot) and os.path.samefile(CGRoot, newCGRoot)):
+            return
+
+        self.createLoading(lambda: collectPickToCG(CGRoot, newCGRoot))
+        utils.remove(CGRoot)
+
+        config.set('path', 'input', newCGRoot)
+        data.loadDatabase(newCGRoot)
+        self.imageViewer.refresh()
+
+    def formatImageNames(self):
+        from tools.name_formater import formatImageNames
+        lastCGRoot = config.get('path', 'input')
+        CGRoot = QFileDialog.getExistingDirectory(self, 'Format Image Names',
+                                                  lastCGRoot)
+        if not CGRoot:
+            return
+        config.set('path', 'input', CGRoot)
+        formatImageNames(CGRoot)
+
+    def upscaleImages(self):
+        from tools.upscaler import upscaleImages
+        lastCGRoot = config.get('path', 'input')
+        CGRoot = QFileDialog.getExistingDirectory(self, 'Upscale Images',
+                                                  lastCGRoot)
+        if not CGRoot:
+            return
+        config.set('path', 'input', CGRoot)
+        self.createLoading(lambda: upscaleImages(CGRoot))
 
     def convertImages(self):
         from tools.converter import convertImages
-        lastCGPath = config.get('path', 'input')
-        CGPath = QFileDialog.getExistingDirectory(
-            self.root, 'choose directory', lastCGPath)
-        if not CGPath:
+        lastCGRoot = config.get('path', 'input')
+        CGRoot = QFileDialog.getExistingDirectory(self, 'Convert Images',
+                                                  lastCGRoot)
+        if not CGRoot:
             return
-        config.set('path', 'input', CGPath)
-        self.createLoading(lambda: convertImages(CGPath))
+        config.set('path', 'input', CGRoot)
+        self.createLoading(lambda: convertImages(CGRoot))
 
-    def show(self):
-        self.root.showMaximized()
-        self.imageViewer.show()
+    def refresh(self):
+        self.showMaximized()
+        lastCGRoot = config.get('path', 'input')
+        data.loadDatabase(lastCGRoot)
+        self.imageViewer.refresh()
 
     def createLoading(self, task):
-        self.root.setEnabled(False)
-        loading = Loading(self.root)
-        loading.show(task)
-        self.root.setEnabled(True)
+        self.setEnabled(False)
+        loading = Loading(self)
+        loading.startTask(task)
+        self.setEnabled(True)
+
+    def quit(self):
+        data.save()
+        qApp.quit()

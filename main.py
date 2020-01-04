@@ -26,9 +26,10 @@ def main():
     QCoreApplication.setApplicationName('CGPicker')
 
     app = QtWidgets.QApplication(sys.argv)
+    app.setDoubleClickInterval(300)
     cgpicker = CGPicker()
-    cgpicker.show()
-    sys.exit(app.exec_())
+    cgpicker.refresh()
+    app.exec_()
 
 
 if __name__ == '__main__':

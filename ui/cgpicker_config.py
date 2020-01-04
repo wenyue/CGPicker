@@ -1,17 +1,18 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtWidgets import QFrame
+from PyQt5.QtWidgets import QFrame, QAction
 from template.ui_cgpicker_config import Ui_CGPickerConfig
+
 import macro
 
 
-class CGPickerConfig(Ui_CGPickerConfig):
-    def __init__(self, *args, **kwargs):
-        self.root = QFrame(*args, **kwargs)
-        self.setupUi(self.root)
+class CGPickerConfig(QFrame, Ui_CGPickerConfig):
+    def __init__(self, menubar, *args, **kwargs):
+        super(CGPickerConfig, self).__init__(*args, **kwargs)
+        self.setupUi(self)
 
-        self.root.setVisible(False)
+        self.setVisible(False)
         self._macroList = (
             ('ABERRATION_ENDURANCE', self.aberrationEndurance),
             ('SCENE_ABERRATION_THRESHOLD', self.sceneAberrationThreshold),
@@ -29,8 +30,14 @@ class CGPickerConfig(Ui_CGPickerConfig):
         )
         self.bindWithMacro()
 
+    def setupMainMenu(self, windowMenu):
+        CGPickerConfigAction = QAction('&Change Pick Factor', self)
+        CGPickerConfigAction.setShortcut('`')
+        CGPickerConfigAction.triggered.connect(self.toggle)
+        windowMenu.addAction(CGPickerConfigAction)
+
     def toggle(self):
-        self.root.setVisible(not self.root.isVisible())
+        self.setVisible(not self.isVisible())
 
     def bindWithMacro(self):
         for macroName, ctrl in self._macroList:
@@ -47,7 +54,7 @@ class CGPickerConfig(Ui_CGPickerConfig):
         self.faceMaxSize.setValue(macro.FACE_MAX_SIZE)
 
     def reloadMacro(self):
-        from importlib import reload
-        reload(macro)
         for macroName, ctrl in self._macroList:
+            ctrl.blockSignals(True)
             ctrl.setValue(getattr(macro, macroName))
+            ctrl.blockSignals(False)

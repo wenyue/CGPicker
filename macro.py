@@ -1,18 +1,16 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
+DATABASE_FILE = 'database.json'
+
 TMP_NAME = 'tmp'
-PICK_NAME = 'pick'
-LOVE_NAME = 'love'
 BACKUP_NAME = 'backup'
-IMAGE_NAME = 'image'
-FACE_NAME = 'face'
-ALL_NAME = 'All'
-SAMPLE_NAME = 'Sample'
-GREATEST_NAME = '❤'
+
+STAND_WIDTH = 1920
+STAND_HEIGHT = 1080
 
 # 图片缩放系数
-NORMALIZE_SCALE = 0.125
+NORMALIZE_SCALE = 1 / 32
 # 色差忍耐值
 ABERRATION_ENDURANCE = 6
 # 场景色差阈值
@@ -27,7 +25,7 @@ FACE_MIN_SIZE = 0.003
 # 面部上限大小
 FACE_MAX_SIZE = 0.3
 # 面部扩展系数
-FACE_EXTEND_FACTOR = 1.2
+FACE_EXTEND_FACTOR = 1.3
 # 面部大小权重
 FACE_SIZE_FACTOR = 4.0
 # 面部形状权重

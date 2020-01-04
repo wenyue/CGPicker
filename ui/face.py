@@ -2,35 +2,55 @@
 # -*- coding: utf-8 -*-
 
 from PyQt5.QtWidgets import QWidget
-from PyQt5.QtCore import QPoint, QSize
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt, QPoint, QSize
+from PyQt5.QtGui import QPixmap, QImage, QPainter
 from template.ui_face import Ui_Face
+
 import os
 
 
-class Face(Ui_Face):
+class Face(QWidget, Ui_Face):
     def __init__(self, *args, **kwargs):
-        self.root = QWidget(*args, **kwargs)
-        self.setupUi(self.root)
+        super(Face, self).__init__(*args, **kwargs)
+        self.setupUi(self)
+
         self.starNum.setStyleSheet("font-size:20px")
-        self._face = None
+        self._image = None
         self._mtime = None
+        self._faces = None
 
-    def setFace(self, face):
-        mtime = os.path.getmtime(face)
-        if (self._face == face and self._mtime == mtime):
-            return
-        self._face = face
+    def isSameFace(self, image, faces):
+        mtime = os.path.getmtime(image)
+        if (self._image == image and self._mtime == mtime
+                and self._faces == faces):
+            return True
+        self._image = image
         self._mtime = mtime
-        pixmap = QPixmap(face)
-        height = self.root.height()
-        width = pixmap.width() / pixmap.height() * height
-        pixmap = pixmap.scaled(QSize(width, height))
+        self._faces = faces
+        return False
 
-        self.img.setPixmap(pixmap)
-        size = pixmap.size()
-        self.root.setMinimumSize(size)
-        self.img.resize(size)
+    def setFace(self, image, faces):
+        if self.isSameFace(image, faces):
+            return
+
+        bigWidth = 0
+        for face in faces:
+            bigWidth += face.width / face.height * self.height()
+        bigFace = QPixmap(QSize(bigWidth, self.height()))
+        painter = QPainter()
+        painter.begin(bigFace)
+        originalImage = QImage(image)
+        curPosX = 0
+        for face in faces:
+            faceImage = originalImage.copy(face.x, face.y, face.width, face.height)
+            faceImage = faceImage.scaledToHeight(self.height(), Qt.SmoothTransformation)
+            painter.drawImage(curPosX, 0, faceImage)
+            curPosX += faceImage.width()
+        painter.end()
+
+        self.img.setPixmap(bigFace)
+        self.setMinimumSize(bigFace.size())
+        self.img.resize(bigFace.size())
 
         ix, iy = self.img.x(), self.img.y()
         iw, ih = self.img.width(), self.img.height()
