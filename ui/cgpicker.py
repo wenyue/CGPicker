@@ -10,43 +10,27 @@ from ui.editor import Editor
 from ui.picker_config import PickerConfig
 from ui.loading import Loading
 
-<<<<<<< HEAD
-from common.database import Database
-=======
-from common.database import data
->>>>>>> c73d583709c49293239096943d944743df2723bb
 from common import config
 from common import macro
 
 
 class CGPicker(QMainWindow, Ui_CGPicker):
 
-    def __init__(self, *args, **kwargs):
-        super(CGPicker, self).__init__(*args, **kwargs)
+    def __init__(self, database, sceneIdx, tempMode=False):
+        super(CGPicker, self).__init__()
         self.setupUi(self)
+        self.showMaximized()
 
-        self._database = Database()
+        self._database = database
+        self._tempMode = tempMode
 
-        self.addSubPanel()
-        self.setupMainMenu()
-
-    def addSubPanel(self):
-<<<<<<< HEAD
-        self.editor = Editor(self._database, self)
+        self.editor = Editor(self._database, sceneIdx, self)
         self.horizontalLayout.addWidget(self.editor)
 
         self.PickerConfig = PickerConfig(self)
-=======
-        windowMenu = self.menubar.addMenu('&Window')
-
-        self.editor = Editor(self)
-        self.editor.setupMainMenu(self.menubar)
-        self.horizontalLayout.addWidget(self.editor)
-
-        self.PickerConfig = PickerConfig(self)
-        self.PickerConfig.setupMainMenu(windowMenu)
->>>>>>> c73d583709c49293239096943d944743df2723bb
         self.horizontalLayout.addWidget(self.PickerConfig)
+
+        self.setupMainMenu()
 
     def setupMainMenu(self):
         menubar = self.menubar
@@ -54,11 +38,13 @@ class CGPicker(QMainWindow, Ui_CGPicker):
 
         importAction = QAction('&Import', self)
         importAction.setShortcut('Ctrl+I')
+        importAction.setEnabled(not self._tempMode)
         importAction.triggered.connect(self.pickCG)
         fileMenu.addAction(importAction)
 
         exportAction = QAction('&Export', self)
         exportAction.setShortcut('Ctrl+O')
+        exportAction.setEnabled(not self._tempMode)
         exportAction.triggered.connect(self.collectPickToCG)
         fileMenu.addAction(exportAction)
 
@@ -98,11 +84,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         if not CGRoot:
             return
 
-<<<<<<< HEAD
         self._database.flush()
-=======
-        data.flush()
->>>>>>> c73d583709c49293239096943d944743df2723bb
 
         if os.path.basename(CGRoot) == 'All':
             from importlib import reload
@@ -152,11 +134,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
             self.createLoading(lambda: pickCG(CGRoot))
 
         config.set('path', 'input', CGRoot)
-<<<<<<< HEAD
         self._database.load(CGRoot)
-=======
-        data.loadDatabase(CGRoot)
->>>>>>> c73d583709c49293239096943d944743df2723bb
         self.editor.refresh()
 
     def collectPickToCG(self):
@@ -183,11 +161,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         self.createLoading(lambda: collectPickToCG(CGRoot, newCGRoot))
 
         config.set('path', 'input', newCGRoot)
-<<<<<<< HEAD
         self._database.load(newCGRoot)
-=======
-        data.loadDatabase(newCGRoot)
->>>>>>> c73d583709c49293239096943d944743df2723bb
         self.editor.refresh()
 
     def formatImageNames(self):
@@ -196,7 +170,6 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         CGRoot = QFileDialog.getExistingDirectory(self, 'Format Image Names', lastCGRoot)
         if not CGRoot:
             return
-        config.set('path', 'input', CGRoot)
         formatImageNames(CGRoot)
 
     def upscaleImages(self):
@@ -205,7 +178,6 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         CGRoot = QFileDialog.getExistingDirectory(self, 'Upscale Images', lastCGRoot)
         if not CGRoot:
             return
-        config.set('path', 'input', CGRoot)
         self.createLoading(lambda: upscaleImages(CGRoot))
 
     def convertImages(self):
@@ -214,18 +186,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         CGRoot = QFileDialog.getExistingDirectory(self, 'Convert Images', lastCGRoot)
         if not CGRoot:
             return
-        config.set('path', 'input', CGRoot)
         self.createLoading(lambda: convertImages(CGRoot))
-
-    def refresh(self):
-        self.showMaximized()
-        lastCGRoot = config.get('path', 'input')
-<<<<<<< HEAD
-        self._database.load(lastCGRoot)
-=======
-        data.loadDatabase(lastCGRoot)
->>>>>>> c73d583709c49293239096943d944743df2723bb
-        self.editor.refresh()
 
     def createLoading(self, task):
         self.setEnabled(False)
@@ -234,8 +195,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         self.setEnabled(True)
 
     def closeEvent(self, event):
-<<<<<<< HEAD
         self._database.flush()
-=======
-        data.flush()
->>>>>>> c73d583709c49293239096943d944743df2723bb
+        if not self._tempMode:
+            sceneIdx = self.editor.getSceneIdx()
+            config.set('info', 'scene_index', str(sceneIdx))

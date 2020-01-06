@@ -18,7 +18,7 @@ class RandomPool(object):
         for dirname in os.listdir(self._root):
             CGRoot = os.path.join(self._root, dirname)
             databaseFilename = os.path.join(CGRoot, macro.DATABASE_FILE)
-            if os.isfile(databaseFilename):
+            if os.path.isfile(databaseFilename):
                 database = Database(CGRoot)
                 self._databases.append(database)
 

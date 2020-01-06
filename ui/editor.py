@@ -11,11 +11,6 @@ from template.ui_editor import Ui_Editor
 
 from ui.face import Face
 
-<<<<<<< HEAD:ui/editor.py
-=======
-from common.database import data
-
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
 RatingMap = (u'#', u'☆', u'☆☆', u'☆☆☆', u'❤')
 
 
@@ -26,39 +21,36 @@ class ViewMode(Enum):
 
 
 class Editor(QWidget, Ui_Editor):
-<<<<<<< HEAD:ui/editor.py
 
-    def __init__(self, database, *args, **kwargs):
+    def __init__(self, database, sceneIdx, *args, **kwargs):
         super(Editor, self).__init__(*args, **kwargs)
         self.setupUi(self)
 
-        self._database = database
-
-=======
-    def __init__(self, *args, **kwargs):
-        super(Editor, self).__init__(*args, **kwargs)
-        self.setupUi(self)
-
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         self.faceLayout = QtWidgets.QHBoxLayout(self.faces)
         self.faceLayout.setSpacing(0)
         self.home.setVisible(False)
         self.actionNum.setStyleSheet('font-size:30px')
         self.actionNum.setText('number')
 
+        self._database = database
         self._imageCtrlHandler = ImageCtrlHandler(self.img, self.imgFrame)
         self._faceCtrls = []
         self._viewMode = ViewMode.PICK
         self._lastViewMode = ViewMode.PICK
         self._lockViewMode = ViewMode.PICK
-        self._sidx = 0
+
+        self._saveCounter = 0
+        self._globalRating = 2
+
+        self._sidx = self._database.normalizeSceneIdx(sceneIdx)
         self._aidx = 0
         self._iidx = 0
         self._pidx = 0
         self._lidx = 0
+        self.update()
 
-        self._saveCounter = 0
-        self._globalRating = 2
+    def getSceneIdx(self):
+        return self._sidx
 
     def keyReleaseEvent(self, event):
         if event.key() == Qt.Key_Control:
@@ -69,11 +61,7 @@ class Editor(QWidget, Ui_Editor):
 
     @property
     def curScene(self):
-<<<<<<< HEAD:ui/editor.py
         return self._database.getScene(self._sidx)
-=======
-        return data.getScene(self._sidx)
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
 
     @property
     def curAction(self):
@@ -138,34 +126,19 @@ class Editor(QWidget, Ui_Editor):
         normalViewAction = QAction('Normal View', self)
         normalViewAction.setShortcut('Q')
         normalViewAction.setCheckable(True)
-<<<<<<< HEAD:ui/editor.py
         normalViewAction.triggered.connect(lambda: self.setViewMode(ViewMode.SELECT))
-=======
-        normalViewAction.triggered.connect(
-            lambda: self.setViewMode(ViewMode.SELECT))
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         viewMenu.addAction(normalViewAction)
 
         pickViewAction = QAction('Pick View', self)
         pickViewAction.setShortcut('W')
         pickViewAction.setCheckable(True)
-<<<<<<< HEAD:ui/editor.py
         pickViewAction.triggered.connect(lambda: self.setViewMode(ViewMode.PICK))
-=======
-        pickViewAction.triggered.connect(
-            lambda: self.setViewMode(ViewMode.PICK))
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         viewMenu.addAction(pickViewAction)
 
         loveViewAction = QAction('Love View', self)
         loveViewAction.setShortcut('E')
         loveViewAction.setCheckable(True)
-<<<<<<< HEAD:ui/editor.py
         loveViewAction.triggered.connect(lambda: self.setViewMode(ViewMode.LOVE))
-=======
-        loveViewAction.triggered.connect(
-            lambda: self.setViewMode(ViewMode.LOVE))
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         viewMenu.addAction(loveViewAction)
 
         viewModeGroup = QActionGroup(self)
@@ -187,34 +160,19 @@ class Editor(QWidget, Ui_Editor):
         lockNormalViewAction = QAction('Lock Normal View', self)
         lockNormalViewAction.setShortcut('Ctrl+Q')
         lockNormalViewAction.setCheckable(True)
-<<<<<<< HEAD:ui/editor.py
         lockNormalViewAction.triggered.connect(lambda: self.setLockViewMode(ViewMode.SELECT))
-=======
-        lockNormalViewAction.triggered.connect(
-            lambda: self.setLockViewMode(ViewMode.SELECT))
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         viewMenu.addAction(lockNormalViewAction)
 
         lockPickViewAction = QAction('Lock Pick View', self)
         lockPickViewAction.setShortcut('Ctrl+W')
         lockPickViewAction.setCheckable(True)
-<<<<<<< HEAD:ui/editor.py
         lockPickViewAction.triggered.connect(lambda: self.setLockViewMode(ViewMode.PICK))
-=======
-        lockPickViewAction.triggered.connect(
-            lambda: self.setLockViewMode(ViewMode.PICK))
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         viewMenu.addAction(lockPickViewAction)
 
         lockLoveViewAction = QAction('Lock Love View', self)
         lockLoveViewAction.setShortcut('Ctrl+E')
         lockLoveViewAction.setCheckable(True)
-<<<<<<< HEAD:ui/editor.py
         lockLoveViewAction.triggered.connect(lambda: self.setLockViewMode(ViewMode.LOVE))
-=======
-        lockLoveViewAction.triggered.connect(
-            lambda: self.setLockViewMode(ViewMode.LOVE))
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         viewMenu.addAction(lockLoveViewAction)
 
         lockViewModeGroup = QActionGroup(self)
@@ -286,10 +244,7 @@ class Editor(QWidget, Ui_Editor):
         editMenu.addAction(toggleLoveAction)
 
     def setupRatingMenu(self, editMenu):
-<<<<<<< HEAD:ui/editor.py
 
-=======
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         def setRating(rating):
             self.curScene.setRating(rating)
             self.update()
@@ -299,22 +254,12 @@ class Editor(QWidget, Ui_Editor):
             ratingAction = QAction('Rating %s' % RatingMap[rating], self)
             ratingAction.setShortcut('%d' % rating)
             ratingAction.setCheckable(True)
-<<<<<<< HEAD:ui/editor.py
             ratingAction.triggered.connect(lambda _, rating=rating: setRating(rating))
-=======
-            ratingAction.triggered.connect(
-                lambda _, rating=rating: setRating(rating))
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
             ratingGroup.addAction(ratingAction)
             editMenu.addAction(ratingAction)
 
             def update(ratingAction=ratingAction, rating=rating):
-<<<<<<< HEAD:ui/editor.py
                 checked = self.curScene.getRawRating() == rating if self.curScene else False
-=======
-                checked = self.curScene.getRawRating(
-                ) == rating if self.curScene else False
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
                 ratingAction.setChecked(checked)
 
             editMenu.aboutToShow.connect(update)
@@ -325,19 +270,10 @@ class Editor(QWidget, Ui_Editor):
         ratingGroup = QActionGroup(self)
         editMenu.addSeparator()
         for rating in range(1, 5):
-<<<<<<< HEAD:ui/editor.py
             ratingAction = QAction('Global Rating %s' % RatingMap[rating], self)
             ratingAction.setShortcut('Ctrl+%d' % rating)
             ratingAction.setCheckable(True)
             ratingAction.triggered.connect(lambda _, rating=rating: setGlobalRating(rating))
-=======
-            ratingAction = QAction('Global Rating %s' % RatingMap[rating],
-                                   self)
-            ratingAction.setShortcut('Ctrl+%d' % rating)
-            ratingAction.setCheckable(True)
-            ratingAction.triggered.connect(
-                lambda _, rating=rating: setGlobalRating(rating))
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
             ratingGroup.addAction(ratingAction)
             editMenu.addAction(ratingAction)
 
@@ -358,22 +294,14 @@ class Editor(QWidget, Ui_Editor):
             repickAction = QAction('Repick %d' % faceNum, self)
             repickAction.setShortcut('Ctrl+Shift+%d' % faceNum)
             repickAction.triggered.connect(
-<<<<<<< HEAD:ui/editor.py
                 lambda _, faceNum=faceNum: self.repickScene(faceNum, False)
             )
-=======
-                lambda _, faceNum=faceNum: self.repickScene(faceNum, False))
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
             repickMenu.addAction(repickAction)
 
             repickAction = QAction('Repick %d (Debug)' % faceNum, self)
             repickAction.triggered.connect(
-<<<<<<< HEAD:ui/editor.py
                 lambda _, faceNum=faceNum: self.repickScene(faceNum, True)
             )
-=======
-                lambda _, faceNum=faceNum: self.repickScene(faceNum, True))
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
             repickMenu.addAction(repickAction)
 
     def setupModifyMenu(self, editMenu):
@@ -420,12 +348,7 @@ class Editor(QWidget, Ui_Editor):
             self.setViewMode(self._lastViewMode)
         else:
             if self.curImage is not None:
-<<<<<<< HEAD:ui/editor.py
                 self._aidx, self._iidx = self.curScene.indexImage(self.curImage)
-=======
-                self._aidx, self._iidx = self.curScene.indexImage(
-                    self.curImage)
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
             self.setViewMode(ViewMode.SELECT)
 
     def showNextImage(self):
@@ -464,12 +387,7 @@ class Editor(QWidget, Ui_Editor):
         if self.isInvalid() or self._viewMode != ViewMode.SELECT:
             return
         self._iidx = 0
-<<<<<<< HEAD:ui/editor.py
         self._aidx = self.curScene.normalizeActionIdx(self._aidx + 1, loop=True)
-=======
-        self._aidx = self.curScene.normalizeActionIdx(
-            self._aidx + 1, loop=True)
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         if self._aidx == 0:
             self.showHomeFlag()
         self.update()
@@ -478,12 +396,7 @@ class Editor(QWidget, Ui_Editor):
         if self.isInvalid() or self._viewMode != ViewMode.SELECT:
             return
         self._iidx = 0
-<<<<<<< HEAD:ui/editor.py
         self._aidx = self.curScene.normalizeActionIdx(self._aidx - 1, loop=True)
-=======
-        self._aidx = self.curScene.normalizeActionIdx(
-            self._aidx - 1, loop=True)
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         if self._aidx == 0:
             self.showHomeFlag()
         self.update()
@@ -492,11 +405,7 @@ class Editor(QWidget, Ui_Editor):
         if self.isInvalid():
             return
         self._viewMode = self._lockViewMode
-<<<<<<< HEAD:ui/editor.py
         self._sidx = self._database.normalizeSceneIdx(self._sidx + 1)
-=======
-        self._sidx = data.normalizeSceneIdx(self._sidx + 1)
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         self._aidx = 0
         self._iidx = 0
         self._pidx = 0
@@ -509,11 +418,7 @@ class Editor(QWidget, Ui_Editor):
         if self.isInvalid():
             return
         self._viewMode = self._lockViewMode
-<<<<<<< HEAD:ui/editor.py
         self._sidx = self._database.normalizeSceneIdx(self._sidx - 1)
-=======
-        self._sidx = data.normalizeSceneIdx(self._sidx - 1)
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         self._aidx = 0
         self._iidx = 0
         self._pidx = 0
@@ -595,23 +500,14 @@ class Editor(QWidget, Ui_Editor):
     def deleteScenen(self):
         if self.isInvalid():
             return
-<<<<<<< HEAD:ui/editor.py
         self._database.delScene(self.curScene)
         self._sidx = self._database.normalizeSceneIdx(self._sidx)
-=======
-        data.delScene(self.curScene)
-        self._sidx = data.normalizeSceneIdx(self._sidx)
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         self.update()
 
     def saveDatabase(self):
         self._saveCounter += 1
         if self._saveCounter % 5 == 0:
-<<<<<<< HEAD:ui/editor.py
             self._database.save()
-=======
-            data.save()
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
 
     def showHomeFlag(self):
         self.home.setVisible(True)
@@ -633,12 +529,7 @@ class Editor(QWidget, Ui_Editor):
             self.actionNum.setText('')
             return
         aidx, _ = self.curScene.indexImage(self.curImage)
-<<<<<<< HEAD:ui/editor.py
         self.actionNum.setText('%d/%d' % (aidx + 1, self.curScene.getActionNum()))
-=======
-        self.actionNum.setText('%d/%d' % (aidx + 1,
-                                          self.curScene.getActionNum()))
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
 
     def _updateFaceCtrls(self):
         if self.isInvalid() or self.curImage is None:
@@ -676,12 +567,7 @@ class Editor(QWidget, Ui_Editor):
             else:
                 ctrl.starNum.setText('')
         hbar = self.faceFrame.horizontalScrollBar()
-<<<<<<< HEAD:ui/editor.py
         hbarVal = selected_ctrl.pos().x() - self.faceFrame.width() / 2 + selected_ctrl.width() / 2
-=======
-        hbarVal = selected_ctrl.pos().x() - self.faceFrame.width(
-        ) / 2 + selected_ctrl.width() / 2
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
         hbar.setValue(hbarVal)
 
     def _updateImageCtrl(self):
@@ -703,19 +589,12 @@ class Editor(QWidget, Ui_Editor):
             viewModeStr = 'PICK'
         elif self._viewMode == ViewMode.LOVE:
             viewModeStr = 'LOVE'
-<<<<<<< HEAD:ui/editor.py
         self.window().setWindowTitle(
             u'CGPicker 《%s》[%d/%d] (%s) %s' % (
                 self._database.getCGName(), self._sidx + 1, self._database.getSceneNum(), ratingStr,
                 viewModeStr
             )
         )
-=======
-        self.window().setWindowTitle(u'CGPicker 《%s》[%d/%d] (%s) %s' %
-                                     (data.getCGName(), self._sidx + 1,
-                                      data.getSceneNum(), ratingStr,
-                                      viewModeStr))
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
 
 
 class ImageCtrlHandler(object):
@@ -732,12 +611,7 @@ class ImageCtrlHandler(object):
             self._imageSize = imageCtrl.pixmap().size()
 
         def onMove(self, pos):
-<<<<<<< HEAD:ui/editor.py
             self.r = max(abs(pos.x() - self.x), abs(pos.y() - self.y), self.MIN_RADIUS)
-=======
-            self.r = max(
-                abs(pos.x() - self.x), abs(pos.y() - self.y), self.MIN_RADIUS)
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
 
         def serialize(self):
             left = max(0, self.x - self.r)
@@ -747,12 +621,7 @@ class ImageCtrlHandler(object):
             widthFactor = self._imageSize.width() / self._ctrlSize.width()
             heightFactor = self._imageSize.height() / self._ctrlSize.height()
             return [
-<<<<<<< HEAD:ui/editor.py
                 left * widthFactor, top * heightFactor, right * widthFactor, bottom * heightFactor
-=======
-                left * widthFactor, top * heightFactor, right * widthFactor,
-                bottom * heightFactor
->>>>>>> c73d583709c49293239096943d944743df2723bb:ui/editor.py
             ]
 
     def __init__(self, imageCtrl, frameCtrl):

@@ -274,6 +274,7 @@ def generateSceneProto(faces, actions, picks):
         ])
     return {
         'rating': 0,
+        'timestamp': 0,
         'actions': actionsProto,
         'pick': pickProto,
         'love': [],

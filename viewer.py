@@ -21,21 +21,14 @@ sys.excepthook = excepthook
 def main():
     from PyQt5 import QtWidgets
     from PyQt5.QtCore import QCoreApplication
-    from ui.cgpicker import CGPicker
+    from ui.cgviewer import CGViewer
 
-    from common.database import Database
-    from common import config
-
-    QCoreApplication.setApplicationName('CGPicker')
+    QCoreApplication.setApplicationName('CGViewer')
 
     app = QtWidgets.QApplication(sys.argv)
     app.setDoubleClickInterval(300)
-
-    database = Database(config.get('path', 'input'))
-    sceneIdx = int(config.get('info', 'scene_index'))
-    cgpicker = CGPicker(database, sceneIdx)
-    cgpicker.show()
-
+    cgviewer = CGViewer()
+    cgviewer.show()
     sys.exit(app.exec_())
 
 
