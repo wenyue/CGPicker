@@ -3,8 +3,9 @@
 
 import os
 import shutil
-import macro
-import utils
+
+from common import macro
+from common import utils
 
 
 def collectPickToCG(CGRoot, newCGRoot):

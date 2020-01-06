@@ -4,16 +4,19 @@
 from PIL import Image
 import os
 
+from common import utils
+
 
 def convertImages(path):
     tasks = []
-    for root, _, files in os.walk(path):
-        for filename in files:
-            _, extend = os.path.splitext(filename)
-            if extend.lower() not in ('.png', '.bmp'):
-                continue
-            filename = os.path.join(root, filename)
-            tasks.append(filename)
+    for fname in os.listdir(path):
+        filename = os.path.join(path, fname)
+        if not utils.isImage(filename):
+            continue
+        _, extend = os.path.splitext(filename)
+        if extend.lower() == '.jpg':
+            continue
+        tasks.append(filename)
 
     yield len(tasks)
 

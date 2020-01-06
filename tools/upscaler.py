@@ -7,8 +7,9 @@ import sys
 import time
 import subprocess
 import shutil
-import macro
-import utils
+
+from common import macro
+from common import utils
 
 
 def backupSmallImages(path):
@@ -21,6 +22,7 @@ def backupSmallImages(path):
             width = img.width
             height = img.height
         if width < macro.STAND_WIDTH and height < macro.STAND_HEIGHT:
+            os.makedirs(bpath, exist_ok=True)
             shutil.move(filename, os.path.join(bpath, fname))
 
 
@@ -68,7 +70,7 @@ def upscaleImages(path):
 
     bpath = os.path.join(path, macro.BACKUP_NAME)
     tasks = os.listdir(bpath) if os.path.exists(bpath) else []
-    if len(tasks) == 0:
+    if not tasks:
         clear(path)
         return
 

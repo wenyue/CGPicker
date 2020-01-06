@@ -10,6 +10,7 @@ from template.ui_loading import Ui_Loading
 
 
 class Loading(QDialog, Ui_Loading):
+
     def __init__(self, *args, **kwargs):
         super(Loading, self).__init__(*args, **kwargs)
         self.setupUi(self)
@@ -34,6 +35,8 @@ class Loading(QDialog, Ui_Loading):
         try:
             self.taskNum = next(self.task)
         except StopIteration:
+            return
+        if self.taskNum == 0:
             return
 
         self.timer = QTimer()

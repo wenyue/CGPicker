@@ -10,12 +10,8 @@ import copy
 import json
 import shutil
 
-if __name__ == '__main__':
-    import sys
-    sys.path.append('../')
-
-import utils  # noqa
-import macro  # noqa
+from common import utils
+from common import macro
 
 
 def debugData(data):
@@ -167,6 +163,9 @@ def calFaceRegions(scene, faceNum=1, debug=False):  # noqa
     maxRadius = int(math.sqrt(w * h * macro.FACE_MAX_SIZE) // 2)
     minRadius = int(math.sqrt(w * h * macro.FACE_MIN_SIZE) // 2)
 
+    if faceNum == 0:
+        return [(w // 2, h // 2, max(w, h) // 2, -1)]
+
     hits = calHits(scene)
 
     faces = []
@@ -262,23 +261,23 @@ def generatePicks(actions):
 
 
 def generateSceneProto(faces, actions, picks):
-    actionProto = [[os.path.basename(img.filename) for img in action]
-                   for action in actions]
+    actionsProto = [[os.path.basename(img.filename) for img in action]
+                    for action in actions]
     pickProto = [os.path.basename(img.filename) for img in picks]
     w, h = actions[0][0].size
-    faceProto = []
+    facesProto = []
     for face in faces:
         left, right, top, bottom = convertRegion(face, w, h)
-        faceProto.append([
+        facesProto.append([
             int(val / macro.NORMALIZE_SCALE)
             for val in (left, top, right, bottom)
         ])
     return {
         'rating': 0,
-        'actions': actionProto,
+        'actions': actionsProto,
         'pick': pickProto,
         'love': [],
-        'faces': faceProto,
+        'faces': facesProto,
     }
 
 
@@ -313,6 +312,21 @@ def pickCG(path):
 def repickScene(images, faceNum, debug):
     images = [loadImage(fname) for fname in images if utils.isImage(fname)]
     faces = calFaceRegions(images, faceNum, debug)
+    actions = utils.groupby(lambda li, ri: isSameAction(li, ri, faces), images)
+    picks = generatePicks(actions)
+    return generateSceneProto(faces, actions, picks)
+
+
+def repickSceneWithFaces(images, facesProto):
+    images = [loadImage(fname) for fname in images if utils.isImage(fname)]
+    faces = []
+    for faceProto in facesProto:
+        x = (faceProto[0] + faceProto[2]) / 2 * macro.NORMALIZE_SCALE
+        y = (faceProto[1] + faceProto[3]) / 2 * macro.NORMALIZE_SCALE
+        width = (faceProto[2] - faceProto[0]) * macro.NORMALIZE_SCALE
+        height = (faceProto[3] - faceProto[1]) * macro.NORMALIZE_SCALE
+        radius = max(width, height) / 2
+        faces.append([x, y, radius, 0])
     actions = utils.groupby(lambda li, ri: isSameAction(li, ri, faces), images)
     picks = generatePicks(actions)
     return generateSceneProto(faces, actions, picks)
