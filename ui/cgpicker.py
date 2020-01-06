@@ -6,12 +6,13 @@ import os
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, qApp, QAction
 from template.ui_cgpicker import Ui_CGPicker
 
-from ui.image_viewer import ImageViewer
-from ui.cgpicker_config import CGPickerConfig
+from ui.editor import Editor
+from ui.picker_config import PickerConfig
 from ui.loading import Loading
-from database import data
-import config
-import macro
+
+from common.database import data
+from common import config
+from common import macro
 
 
 class CGPicker(QMainWindow, Ui_CGPicker):
@@ -25,13 +26,13 @@ class CGPicker(QMainWindow, Ui_CGPicker):
     def addSubPanel(self):
         windowMenu = self.menubar.addMenu('&Window')
 
-        self.imageViewer = ImageViewer(self.menubar)
-        self.imageViewer.setupMainMenu(self.menubar)
-        self.horizontalLayout.addWidget(self.imageViewer)
+        self.editor = Editor(self)
+        self.editor.setupMainMenu(self.menubar)
+        self.horizontalLayout.addWidget(self.editor)
 
-        self.CGPickerConfig = CGPickerConfig(self.menubar)
-        self.CGPickerConfig.setupMainMenu(windowMenu)
-        self.horizontalLayout.addWidget(self.CGPickerConfig)
+        self.PickerConfig = PickerConfig(self)
+        self.PickerConfig.setupMainMenu(windowMenu)
+        self.horizontalLayout.addWidget(self.PickerConfig)
 
     def setupMainMenu(self):
         menubar = self.menubar
@@ -65,7 +66,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
 
         quitAction = QAction('&Quit', self)
         quitAction.setShortcut('Esc')
-        quitAction.triggered.connect(self.quit)
+        quitAction.triggered.connect(self.close)
         fileMenu.addAction(quitAction)
 
     def pickCG(self):
@@ -79,10 +80,50 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         if not CGRoot:
             return
 
-        if not os.path.isfile(os.path.join(CGRoot, macro.DATABASE_FILE)):
+        data.flush()
+
+        if os.path.basename(CGRoot) == 'All':
+            from importlib import reload
+            import json
+            reload(macro)
+            self.PickerConfig.reloadMacro()
+            self.createLoading(lambda: upscaleImages(CGRoot))
+            self.createLoading(lambda: convertImages(CGRoot))
+            self.createLoading(lambda: pickCG(CGRoot))
+
+            picks = os.listdir(os.path.join(os.path.dirname(CGRoot), 'Pick'))
+            loves = os.listdir(os.path.join(os.path.dirname(CGRoot), 'Love'))
+            rating = 1
+            dirname = os.path.dirname(CGRoot)
+            if dirname.endswith(u'[☆]'):
+                rating = 1
+            elif dirname.endswith(u'[☆☆]'):
+                rating = 2
+            if dirname.endswith(u'[☆☆☆]'):
+                rating = 3
+            if dirname.endswith(u'[❤]'):
+                rating = 4
+
+            with open(os.path.join(CGRoot, macro.DATABASE_FILE), 'r') as f:
+                proto = json.load(f)
+            for sceneProto in proto:
+                pickProto = []
+                loveProto = []
+                for action in sceneProto['actions']:
+                    for image in action:
+                        if image in picks:
+                            pickProto.append(image)
+                        if image in loves:
+                            loveProto.append(image)
+                sceneProto['pick'] = pickProto
+                sceneProto['love'] = loveProto
+                sceneProto['rating'] = rating if loveProto else 0
+            with open(os.path.join(CGRoot, macro.DATABASE_FILE), 'w') as f:
+                json.dump(proto, f, indent=2, sort_keys=True)
+        elif not os.path.isfile(os.path.join(CGRoot, macro.DATABASE_FILE)):
             from importlib import reload
             reload(macro)
-            self.CGPickerConfig.reloadMacro()
+            self.PickerConfig.reloadMacro()
             formatImageNames(CGRoot)
             self.createLoading(lambda: upscaleImages(CGRoot))
             self.createLoading(lambda: convertImages(CGRoot))
@@ -90,7 +131,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
 
         config.set('path', 'input', CGRoot)
         data.loadDatabase(CGRoot)
-        self.imageViewer.refresh()
+        self.editor.refresh()
 
     def collectPickToCG(self):
         from tools.collector import collectPickToCG
@@ -98,15 +139,26 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         CGRoot = config.get('path', 'input')
         outPath = config.get('path', 'output')
         newCGRoot = os.path.join(outPath, os.path.basename(CGRoot))
+        #######################
+        if os.path.basename(CGRoot) == 'All':
+            newCGRoot = os.path.dirname(CGRoot)
+            if newCGRoot.endswith(u'[☆]'):
+                newCGRoot = newCGRoot.replace(u'[☆]', '')
+            elif newCGRoot.endswith(u'[☆☆]'):
+                newCGRoot = newCGRoot.replace(u'[☆☆]', '')
+            if newCGRoot.endswith(u'[☆☆☆]'):
+                newCGRoot = newCGRoot.replace(u'[☆☆☆]', '')
+            if newCGRoot.endswith(u'[❤]'):
+                newCGRoot = newCGRoot.replace(u'[❤]', '')
+        #########################
         if (os.path.isdir(newCGRoot) and os.path.samefile(CGRoot, newCGRoot)):
             return
 
         self.createLoading(lambda: collectPickToCG(CGRoot, newCGRoot))
-        utils.remove(CGRoot)
 
         config.set('path', 'input', newCGRoot)
         data.loadDatabase(newCGRoot)
-        self.imageViewer.refresh()
+        self.editor.refresh()
 
     def formatImageNames(self):
         from tools.name_formater import formatImageNames
@@ -142,7 +194,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         self.showMaximized()
         lastCGRoot = config.get('path', 'input')
         data.loadDatabase(lastCGRoot)
-        self.imageViewer.refresh()
+        self.editor.refresh()
 
     def createLoading(self, task):
         self.setEnabled(False)
@@ -150,6 +202,5 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         loading.startTask(task)
         self.setEnabled(True)
 
-    def quit(self):
-        data.save()
-        qApp.quit()
+    def closeEvent(self, event):
+        data.flush()

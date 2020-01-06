@@ -35,6 +35,8 @@ class Loading(QDialog, Ui_Loading):
             self.taskNum = next(self.task)
         except StopIteration:
             return
+        if self.taskNum == 0:
+            return
 
         self.timer = QTimer()
         self.timer.setInterval(0)
