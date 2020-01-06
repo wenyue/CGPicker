@@ -4,14 +4,20 @@
 import os
 import json
 import shutil
+<<<<<<< HEAD:common/database.py
 from datetime import datetime
+=======
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
 
 from common import macro
 from common import utils
 
 
 class Action(object):
+<<<<<<< HEAD:common/database.py
 
+=======
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
     def __init__(self, CGRoot, actionProto, sceneFnames):
         self._CGRoot = CGRoot
         self._fnames = actionProto
@@ -39,8 +45,14 @@ class Action(object):
         return fname in self._fnames
 
     def getImage(self, index):
+<<<<<<< HEAD:common/database.py
         return os.path.join(self._CGRoot,
                             self._fnames[index]) if index < len(self._fnames) else None
+=======
+        return os.path.join(
+            self._CGRoot,
+            self._fnames[index]) if index < len(self._fnames) else None
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
 
     def getFname(self, index):
         return self._fnames[index] if index < len(self._fnames) else None
@@ -56,12 +68,18 @@ class Action(object):
 
 
 class Pick(Action):
+<<<<<<< HEAD:common/database.py
 
+=======
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
     def clear(self):
         self._fnames.clear()
 
     def sort(self):
+<<<<<<< HEAD:common/database.py
 
+=======
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
         def bySceneIndex(fname):
             return self._sceneFnames.index(fname)
 
@@ -82,7 +100,10 @@ class Pick(Action):
 
 
 class Face(object):
+<<<<<<< HEAD:common/database.py
 
+=======
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
     def __init__(self, faceProto):
         self.x = faceProto[0]
         self.y = faceProto[1]
@@ -102,7 +123,10 @@ class Face(object):
 
 
 class Scene(object):
+<<<<<<< HEAD:common/database.py
 
+=======
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
     def __init__(self, CGRoot, sceneProto):
         self._CGRoot = CGRoot
         self._sceneFnames = []
@@ -123,8 +147,11 @@ class Scene(object):
         self._pick = Pick(self._CGRoot, sceneProto['pick'], self._sceneFnames)
         self._love = Pick(self._CGRoot, sceneProto['love'], self._sceneFnames)
         self._faces = [Face(faceProto) for faceProto in sceneProto['faces']]
+<<<<<<< HEAD:common/database.py
         self._datetime = datetime.fromtimestamp(0)
         #  self._datetime = datetime.timestamp(sceneProto['timestamp'])
+=======
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
         self._updateSceneFnames()
 
     def serialize(self):
@@ -135,7 +162,10 @@ class Scene(object):
             'pick': self._pick.serialize(),
             'love': self._love.serialize() if rating != 0 else [],
             'faces': [face.serialize() for face in self._faces],
+<<<<<<< HEAD:common/database.py
             'timestamp': self._datetime.timestamp()
+=======
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
         }
 
     def normalizeImages(self, imageIndex):
@@ -151,7 +181,12 @@ class Scene(object):
                 self._pick.renameImage(image, toName)
                 self._love.renameImage(image, toName)
                 toImage = os.path.join(self._CGRoot, macro.TMP_NAME, toName)
+<<<<<<< HEAD:common/database.py
                 os.makedirs(os.path.join(self._CGRoot, macro.TMP_NAME), exist_ok=True)
+=======
+                os.makedirs(
+                    os.path.join(self._CGRoot, macro.TMP_NAME), exist_ok=True)
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
                 shutil.move(image, toImage)
         self._updateSceneFnames()
         return imageIndex
@@ -172,6 +207,7 @@ class Scene(object):
         self._pick.sort()
         self._love.sort()
 
+<<<<<<< HEAD:common/database.py
     def getDatetime(self):
         self._datetime
 
@@ -181,6 +217,12 @@ class Scene(object):
     def getImages(self):
         return [
             action.getImage(idx) for action in self._actions for idx in range(action.getImageNum())
+=======
+    def getImages(self):
+        return [
+            action.getImage(idx)
+            for action in self._actions for idx in range(action.getImageNum())
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
         ]
 
     def getFnames(self):
@@ -213,7 +255,12 @@ class Scene(object):
     def indexImage(self, imagePath):
         aidx, iidx = next(((aidx, action.indexImage(imagePath))
                            for aidx, action in enumerate(self._actions)
+<<<<<<< HEAD:common/database.py
                            if action.indexImage(imagePath) is not None), (None, None))
+=======
+                           if action.indexImage(imagePath) is not None),
+                          (None, None))
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
         return aidx, iidx
 
     def normalizeActionIdx(self, index, loop=False):
@@ -224,11 +271,15 @@ class Scene(object):
 
 
 class Database(object):
+<<<<<<< HEAD:common/database.py
 
+=======
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
     def __init__(self):
         self._CGRoot = None
         self._scenes = []
 
+<<<<<<< HEAD:common/database.py
     def load(self, CGRoot):
         self._CGRoot = None
         self._scenes = []
@@ -237,6 +288,16 @@ class Database(object):
             return
         self._CGRoot = CGRoot
         with open(databaseFilename, 'r') as f:
+=======
+    def loadDatabase(self, CGRoot):
+        self._CGRoot = None
+        self._scenes = []
+        filename = os.path.join(CGRoot, macro.DATABASE_FILE)
+        if not os.path.isfile(filename):
+            return
+        self._CGRoot = CGRoot
+        with open(filename, 'r') as f:
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
             proto = json.load(f)
         for sceneProto in proto:
             scene = Scene(CGRoot, sceneProto)
@@ -246,8 +307,13 @@ class Database(object):
         if self._CGRoot is None:
             return
         proto = [scene.serialize() for scene in self._scenes]
+<<<<<<< HEAD:common/database.py
         databaseFilename = os.path.join(self._CGRoot, macro.DATABASE_FILE)
         with open(databaseFilename, 'w') as f:
+=======
+        filename = os.path.join(self._CGRoot, macro.DATABASE_FILE)
+        with open(filename, 'w') as f:
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py
             json.dump(proto, f, indent=2, sort_keys=True)
 
     def flush(self):
@@ -292,3 +358,9 @@ class Database(object):
 
     def getSceneNum(self):
         return len(self._scenes)
+<<<<<<< HEAD:common/database.py
+=======
+
+
+data = Database()
+>>>>>>> c73d583709c49293239096943d944743df2723bb:common/database.py

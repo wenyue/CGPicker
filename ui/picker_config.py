@@ -8,7 +8,10 @@ from common import macro
 
 
 class PickerConfig(QFrame, Ui_PickerConfig):
+<<<<<<< HEAD:ui/picker_config.py
 
+=======
+>>>>>>> c73d583709c49293239096943d944743df2723bb:ui/picker_config.py
     def __init__(self, menubar, *args, **kwargs):
         super(PickerConfig, self).__init__(*args, **kwargs)
         self.setupUi(self)
