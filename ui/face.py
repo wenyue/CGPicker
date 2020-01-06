@@ -10,10 +10,7 @@ import os
 
 
 class LoadFaceThread(QThread):
-<<<<<<< HEAD
 
-=======
->>>>>>> c73d583709c49293239096943d944743df2723bb
     def __init__(self, image, faces, faceSize):
         super(LoadFaceThread, self).__init__()
         self._image = image
@@ -28,15 +25,8 @@ class LoadFaceThread(QThread):
         originalImage = QImage(self._image)
         curPosX = 0
         for face in self._faces:
-<<<<<<< HEAD
             faceImage = originalImage.copy(face.x, face.y, face.width, face.height)
             faceImage = faceImage.scaledToHeight(self._faceSize.height(), Qt.SmoothTransformation)
-=======
-            faceImage = originalImage.copy(face.x, face.y, face.width,
-                                           face.height)
-            faceImage = faceImage.scaledToHeight(self._faceSize.height(),
-                                                 Qt.SmoothTransformation)
->>>>>>> c73d583709c49293239096943d944743df2723bb
             painter.drawImage(curPosX, 0, faceImage)
             curPosX += faceImage.width()
         painter.end()
@@ -95,12 +85,7 @@ class Face(QWidget, Ui_Face):
         if self._thread:
             self._thread.quit()
         self._thread = LoadFaceThread(image, faces, faceSize)
-<<<<<<< HEAD
         self._thread.finished.connect(lambda thread=self._thread: self._setFacePixmap(thread))
-=======
-        self._thread.finished.connect(
-            lambda thread=self._thread: self._setFacePixmap(thread))
->>>>>>> c73d583709c49293239096943d944743df2723bb
         self._thread.start()
 
     def _setFacePixmap(self, thread):

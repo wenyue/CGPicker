@@ -10,11 +10,7 @@ from ui.editor import Editor
 from ui.picker_config import PickerConfig
 from ui.loading import Loading
 
-<<<<<<< HEAD
 from common.database import Database
-=======
-from common.database import data
->>>>>>> c73d583709c49293239096943d944743df2723bb
 from common import config
 from common import macro
 
@@ -31,21 +27,10 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         self.setupMainMenu()
 
     def addSubPanel(self):
-<<<<<<< HEAD
         self.editor = Editor(self._database, self)
         self.horizontalLayout.addWidget(self.editor)
 
         self.PickerConfig = PickerConfig(self)
-=======
-        windowMenu = self.menubar.addMenu('&Window')
-
-        self.editor = Editor(self)
-        self.editor.setupMainMenu(self.menubar)
-        self.horizontalLayout.addWidget(self.editor)
-
-        self.PickerConfig = PickerConfig(self)
-        self.PickerConfig.setupMainMenu(windowMenu)
->>>>>>> c73d583709c49293239096943d944743df2723bb
         self.horizontalLayout.addWidget(self.PickerConfig)
 
     def setupMainMenu(self):
@@ -98,11 +83,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         if not CGRoot:
             return
 
-<<<<<<< HEAD
         self._database.flush()
-=======
-        data.flush()
->>>>>>> c73d583709c49293239096943d944743df2723bb
 
         if os.path.basename(CGRoot) == 'All':
             from importlib import reload
@@ -152,11 +133,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
             self.createLoading(lambda: pickCG(CGRoot))
 
         config.set('path', 'input', CGRoot)
-<<<<<<< HEAD
         self._database.load(CGRoot)
-=======
-        data.loadDatabase(CGRoot)
->>>>>>> c73d583709c49293239096943d944743df2723bb
         self.editor.refresh()
 
     def collectPickToCG(self):
@@ -183,11 +160,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         self.createLoading(lambda: collectPickToCG(CGRoot, newCGRoot))
 
         config.set('path', 'input', newCGRoot)
-<<<<<<< HEAD
         self._database.load(newCGRoot)
-=======
-        data.loadDatabase(newCGRoot)
->>>>>>> c73d583709c49293239096943d944743df2723bb
         self.editor.refresh()
 
     def formatImageNames(self):
@@ -220,11 +193,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
     def refresh(self):
         self.showMaximized()
         lastCGRoot = config.get('path', 'input')
-<<<<<<< HEAD
         self._database.load(lastCGRoot)
-=======
-        data.loadDatabase(lastCGRoot)
->>>>>>> c73d583709c49293239096943d944743df2723bb
         self.editor.refresh()
 
     def createLoading(self, task):
@@ -234,8 +203,4 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         self.setEnabled(True)
 
     def closeEvent(self, event):
-<<<<<<< HEAD
         self._database.flush()
-=======
-        data.flush()
->>>>>>> c73d583709c49293239096943d944743df2723bb
