@@ -23,17 +23,12 @@ def main():
     from PyQt5.QtCore import QCoreApplication
     from ui.cgpicker import CGPicker
 
-    from common.database import Database
-    from common import config
-
     QCoreApplication.setApplicationName('CGPicker')
 
     app = QtWidgets.QApplication(sys.argv)
     app.setDoubleClickInterval(300)
 
-    database = Database(config.get('path', 'input'))
-    sceneIdx = int(config.get('info', 'scene_index'))
-    cgpicker = CGPicker(database, sceneIdx)
+    cgpicker = CGPicker()
     cgpicker.show()
 
     sys.exit(app.exec_())

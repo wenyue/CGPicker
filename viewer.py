@@ -27,8 +27,10 @@ def main():
 
     app = QtWidgets.QApplication(sys.argv)
     app.setDoubleClickInterval(300)
+
     cgviewer = CGViewer()
     cgviewer.show()
+
     sys.exit(app.exec_())
 
 

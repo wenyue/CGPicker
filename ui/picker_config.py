@@ -13,7 +13,6 @@ class PickerConfig(QFrame, Ui_PickerConfig):
         super(PickerConfig, self).__init__(*args, **kwargs)
         self.setupUi(self)
 
-        self.setVisible(False)
         self._macroList = (
             ('ABERRATION_ENDURANCE', self.aberrationEndurance),
             ('SCENE_ABERRATION_THRESHOLD', self.sceneAberrationThreshold),
@@ -30,12 +29,6 @@ class PickerConfig(QFrame, Ui_PickerConfig):
             ('FACE_REFORCE_FACTOR', self.faceReforceFactor),
         )
         self.bindWithMacro()
-
-    def setupMainMenu(self, windowMenu):
-        PickerConfigAction = QAction('Picker Config', self)
-        PickerConfigAction.setShortcut('`')
-        PickerConfigAction.triggered.connect(self.toggle)
-        windowMenu.addAction(PickerConfigAction)
 
     def toggle(self):
         self.setVisible(not self.isVisible())
