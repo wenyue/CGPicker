@@ -506,7 +506,7 @@ class Editor(QWidget, Ui_Editor):
 
     def saveDatabase(self):
         self._saveCounter += 1
-        if self._saveCounter % 5 == 0:
+        if self._saveCounter % 10 == 0:
             self._database.save()
 
     def showHomeFlag(self):
