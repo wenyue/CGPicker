@@ -282,11 +282,11 @@ class Database(object):
     def getScene(self, index):
         return self._scenes[index] if index < len(self._scenes) else None
 
+    def getSceneNum(self):
+        return len(self._scenes)
+
     def normalizeSceneIdx(self, index, loop=False):
         if loop:
             return index % max(len(self._scenes), 1)
         else:
             return min(max(index, 0), max(len(self._scenes) - 1, 0))
-
-    def getSceneNum(self):
-        return len(self._scenes)

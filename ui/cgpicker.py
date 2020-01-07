@@ -3,75 +3,87 @@
 
 import os
 
-from PyQt5.QtWidgets import QMainWindow, QFileDialog, QAction
+from PyQt5.QtWidgets import QMainWindow, QFileDialog
 from template.ui_cgpicker import Ui_CGPicker
 
 from ui.editor import Editor
 from ui.picker_config import PickerConfig
 from ui.loading import Loading
 
+from common.database import Database
 from common import config
 from common import macro
 
 
 class CGPicker(QMainWindow, Ui_CGPicker):
 
-    def __init__(self, database, sceneIdx, tempMode=False):
-        super(CGPicker, self).__init__()
+    def __init__(self, *args, **kwargs):
+        super(CGPicker, self).__init__(*args, **kwargs)
         self.setupUi(self)
         self.showMaximized()
 
-        self._database = database
-        self._tempMode = tempMode
+        self._database = Database(config.get('path', 'input'))
+        sceneIdx = int(config.get('info', 'scene_index'))
 
-        self.editor = Editor(self._database, sceneIdx, self)
+        self.editor = Editor(self)
+        self.editor.refresh(self._database, sceneIdx)
         self.horizontalLayout.addWidget(self.editor)
+        self.editor.setVisible(True)
 
-        self.PickerConfig = PickerConfig(self)
-        self.horizontalLayout.addWidget(self.PickerConfig)
+        self.pickerConfig = PickerConfig(self)
+        self.horizontalLayout.addWidget(self.pickerConfig)
+        self.pickerConfig.setVisible(False)
 
         self.setupMainMenu()
 
     def setupMainMenu(self):
-        menubar = self.menubar
-        fileMenu = menubar.addMenu('&File')
+        self.menubar.setNativeMenuBar(False)
 
-        importAction = QAction('&Import', self)
+        # File menu
+        fileMenu = self.menubar.addMenu('&File')
+
+        importAction = fileMenu.addAction('&Import')
         importAction.setShortcut('Ctrl+I')
-        importAction.setEnabled(not self._tempMode)
         importAction.triggered.connect(self.pickCG)
-        fileMenu.addAction(importAction)
 
-        exportAction = QAction('&Export', self)
+        exportAction = fileMenu.addAction('&Export')
         exportAction.setShortcut('Ctrl+O')
-        exportAction.setEnabled(not self._tempMode)
         exportAction.triggered.connect(self.collectPickToCG)
-        fileMenu.addAction(exportAction)
 
         fileMenu.addSeparator()
 
-        formatAction = QAction('&Format Image names', self)
+        formatAction = fileMenu.addAction('&Format Image names')
         formatAction.triggered.connect(self.formatImageNames)
-        fileMenu.addAction(formatAction)
 
-        upscaleAction = QAction('&Upscale Images', self)
+        upscaleAction = fileMenu.addAction('&Upscale Images')
         upscaleAction.triggered.connect(self.upscaleImages)
-        fileMenu.addAction(upscaleAction)
 
-        convertAction = QAction('&Convert Images', self)
+        convertAction = fileMenu.addAction('&Convert Images')
         convertAction.triggered.connect(self.convertImages)
-        fileMenu.addAction(convertAction)
 
         fileMenu.addSeparator()
 
-        quitAction = QAction('&Quit', self)
+        quitAction = fileMenu.addAction('&Quit')
         quitAction.setShortcut('Esc')
         quitAction.triggered.connect(self.close)
-        fileMenu.addAction(quitAction)
 
+        # Window menu
         windowMenu = self.menubar.addMenu('&Window')
-        self.PickerConfig.setupMainMenu(windowMenu)
 
+        editorAction = windowMenu.addAction('Editor')
+        editorAction.setEnabled(False)
+        editorAction.setCheckable(True)
+        editorAction.setChecked(self.editor.isVisible())
+
+        windowMenu.addSeparator()
+
+        pickerConfigAction = windowMenu.addAction('Picker Config')
+        pickerConfigAction.setShortcut('`')
+        pickerConfigAction.setCheckable(True)
+        pickerConfigAction.setChecked(self.pickerConfig.isVisible())
+        pickerConfigAction.triggered.connect(self.pickerConfig.toggle)
+
+        # Editor menus
         self.editor.setupMainMenu(self.menubar)
 
     def pickCG(self):
@@ -90,7 +102,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
             from importlib import reload
             import json
             reload(macro)
-            self.PickerConfig.reloadMacro()
+            self.pickerConfig.reloadMacro()
             self.createLoading(lambda: upscaleImages(CGRoot))
             self.createLoading(lambda: convertImages(CGRoot))
             self.createLoading(lambda: pickCG(CGRoot))
@@ -127,7 +139,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         elif not os.path.isfile(os.path.join(CGRoot, macro.DATABASE_FILE)):
             from importlib import reload
             reload(macro)
-            self.PickerConfig.reloadMacro()
+            self.pickerConfig.reloadMacro()
             formatImageNames(CGRoot)
             self.createLoading(lambda: upscaleImages(CGRoot))
             self.createLoading(lambda: convertImages(CGRoot))
@@ -135,7 +147,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
 
         config.set('path', 'input', CGRoot)
         self._database.load(CGRoot)
-        self.editor.refresh()
+        self.editor.refresh(self._database, 0)
 
     def collectPickToCG(self):
         from tools.collector import collectPickToCG
@@ -162,7 +174,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
 
         config.set('path', 'input', newCGRoot)
         self._database.load(newCGRoot)
-        self.editor.refresh()
+        self.editor.refresh(self._database, 0)
 
     def formatImageNames(self):
         from tools.name_formater import formatImageNames
@@ -196,6 +208,5 @@ class CGPicker(QMainWindow, Ui_CGPicker):
 
     def closeEvent(self, event):
         self._database.flush()
-        if not self._tempMode:
-            sceneIdx = self.editor.getSceneIdx()
-            config.set('info', 'scene_index', str(sceneIdx))
+        sceneIdx = self.editor.getSceneIdx()
+        config.set('info', 'scene_index', str(sceneIdx))

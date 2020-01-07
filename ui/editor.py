@@ -4,7 +4,7 @@
 from enum import Enum
 
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QWidget, QAction, QActionGroup
+from PyQt5.QtWidgets import QWidget, QActionGroup
 from PyQt5.QtCore import QPoint, QSize, QRect, QTimer, Qt
 from PyQt5.QtGui import QPixmap, QPen, QPainter
 from template.ui_editor import Ui_Editor
@@ -22,7 +22,7 @@ class ViewMode(Enum):
 
 class Editor(QWidget, Ui_Editor):
 
-    def __init__(self, database, sceneIdx, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(Editor, self).__init__(*args, **kwargs)
         self.setupUi(self)
 
@@ -32,7 +32,6 @@ class Editor(QWidget, Ui_Editor):
         self.actionNum.setStyleSheet('font-size:30px')
         self.actionNum.setText('number')
 
-        self._database = database
         self._imageCtrlHandler = ImageCtrlHandler(self.img, self.imgFrame)
         self._faceCtrls = []
         self._viewMode = ViewMode.PICK
@@ -42,12 +41,22 @@ class Editor(QWidget, Ui_Editor):
         self._saveCounter = 0
         self._globalRating = 2
 
-        self._sidx = self._database.normalizeSceneIdx(sceneIdx)
-        self._aidx = 0
-        self._iidx = 0
-        self._pidx = 0
-        self._lidx = 0
-        self.update()
+        self._viewMenu = None
+        self._editMenu = None
+
+    def setVisible(self, isVisible):
+        super(Editor, self).setVisible(isVisible)
+        self._setMenuEnabled(isVisible)
+
+    def _setMenuEnabled(self, isEnabled):
+        if self._viewMenu:
+            for action in self._viewMenu.actions():
+                action.setEnabled(isEnabled)
+            self._viewMenu.menuAction().setVisible(isEnabled)
+        if self._editMenu:
+            for action in self._editMenu.actions():
+                action.setEnabled(isEnabled)
+            self._editMenu.menuAction().setVisible(isEnabled)
 
     def getSceneIdx(self):
         return self._sidx
@@ -101,47 +110,48 @@ class Editor(QWidget, Ui_Editor):
         return self.curAction is None
 
     def setupMainMenu(self, menubar):
-        viewMenu = menubar.addMenu('&View')
-        self.setupViewModeMenu(viewMenu)
+        _viewMenu = menubar.addMenu('&View')
+        self._viewMenu = _viewMenu
+        self.setupViewModeMenu(_viewMenu)
 
-        viewMenu.addSeparator()
-        self.setupLockViewModeMenu(viewMenu)
+        _viewMenu.addSeparator()
+        self.setupLockViewModeMenu(_viewMenu)
 
-        viewMenu.addSeparator()
-        self.setupNavigatorMenu(viewMenu)
+        _viewMenu.addSeparator()
+        self.setupNavigatorMenu(_viewMenu)
 
-        editMenu = menubar.addMenu('&Edit')
-        self.setupToggleMenu(editMenu)
+        _editMenu = menubar.addMenu('&Edit')
+        self._editMenu = _editMenu
+        self.setupToggleMenu(_editMenu)
 
-        editMenu.addSeparator()
-        self.setupRatingMenu(editMenu)
+        _editMenu.addSeparator()
+        self.setupRatingMenu(_editMenu)
 
-        editMenu.addSeparator()
-        self.setupRepickMenu(editMenu)
+        _editMenu.addSeparator()
+        self.setupRepickMenu(_editMenu)
 
-        editMenu.addSeparator()
-        self.setupModifyMenu(editMenu)
+        _editMenu.addSeparator()
+        self.setupModifyMenu(_editMenu)
 
-    def setupViewModeMenu(self, viewMenu):
-        normalViewAction = QAction('Normal View', self)
+        self._setMenuEnabled(self.isVisible())
+
+    def setupViewModeMenu(self, _viewMenu):
+        normalViewAction = _viewMenu.addAction('Normal View')
         normalViewAction.setShortcut('Q')
         normalViewAction.setCheckable(True)
         normalViewAction.triggered.connect(lambda: self.setViewMode(ViewMode.SELECT))
-        viewMenu.addAction(normalViewAction)
 
-        pickViewAction = QAction('Pick View', self)
+        pickViewAction = _viewMenu.addAction('Pick View')
         pickViewAction.setShortcut('W')
         pickViewAction.setCheckable(True)
         pickViewAction.triggered.connect(lambda: self.setViewMode(ViewMode.PICK))
-        viewMenu.addAction(pickViewAction)
 
-        loveViewAction = QAction('Love View', self)
+        loveViewAction = _viewMenu.addAction('Love View')
         loveViewAction.setShortcut('E')
         loveViewAction.setCheckable(True)
         loveViewAction.triggered.connect(lambda: self.setViewMode(ViewMode.LOVE))
-        viewMenu.addAction(loveViewAction)
 
-        viewModeGroup = QActionGroup(self)
+        viewModeGroup = QActionGroup(_viewMenu)
         viewModeGroup.addAction(normalViewAction)
         viewModeGroup.addAction(pickViewAction)
         viewModeGroup.addAction(loveViewAction)
@@ -154,28 +164,25 @@ class Editor(QWidget, Ui_Editor):
             elif self._viewMode == ViewMode.LOVE:
                 loveViewAction.setChecked(True)
 
-        viewMenu.aboutToShow.connect(update)
+        _viewMenu.aboutToShow.connect(update)
 
-    def setupLockViewModeMenu(self, viewMenu):
-        lockNormalViewAction = QAction('Lock Normal View', self)
+    def setupLockViewModeMenu(self, _viewMenu):
+        lockNormalViewAction = _viewMenu.addAction('Lock Normal View')
         lockNormalViewAction.setShortcut('Ctrl+Q')
         lockNormalViewAction.setCheckable(True)
         lockNormalViewAction.triggered.connect(lambda: self.setLockViewMode(ViewMode.SELECT))
-        viewMenu.addAction(lockNormalViewAction)
 
-        lockPickViewAction = QAction('Lock Pick View', self)
+        lockPickViewAction = _viewMenu.addAction('Lock Pick View')
         lockPickViewAction.setShortcut('Ctrl+W')
         lockPickViewAction.setCheckable(True)
         lockPickViewAction.triggered.connect(lambda: self.setLockViewMode(ViewMode.PICK))
-        viewMenu.addAction(lockPickViewAction)
 
-        lockLoveViewAction = QAction('Lock Love View', self)
+        lockLoveViewAction = _viewMenu.addAction('Lock Love View')
         lockLoveViewAction.setShortcut('Ctrl+E')
         lockLoveViewAction.setCheckable(True)
         lockLoveViewAction.triggered.connect(lambda: self.setLockViewMode(ViewMode.LOVE))
-        viewMenu.addAction(lockLoveViewAction)
 
-        lockViewModeGroup = QActionGroup(self)
+        lockViewModeGroup = QActionGroup(_viewMenu)
         lockViewModeGroup.addAction(lockNormalViewAction)
         lockViewModeGroup.addAction(lockPickViewAction)
         lockViewModeGroup.addAction(lockLoveViewAction)
@@ -188,140 +195,125 @@ class Editor(QWidget, Ui_Editor):
             elif self._lockViewMode == ViewMode.LOVE:
                 lockLoveViewAction.setChecked(True)
 
-        viewMenu.aboutToShow.connect(update)
+        _viewMenu.aboutToShow.connect(update)
 
-    def setupNavigatorMenu(self, viewMenu):
-        selectImageAction = QAction('&Select Image', self)
+    def setupNavigatorMenu(self, _viewMenu):
+        selectImageAction = _viewMenu.addAction('&Select Image')
         selectImageAction.setShortcut('Space')
         selectImageAction.triggered.connect(self.selectImage)
-        viewMenu.addAction(selectImageAction)
 
-        viewMenu.addSeparator()
+        _viewMenu.addSeparator()
 
-        nextImageAction = QAction('Next Image', self)
+        nextImageAction = _viewMenu.addAction('Next Image')
         nextImageAction.setShortcut('Right')
         nextImageAction.triggered.connect(self.showNextImage)
-        viewMenu.addAction(nextImageAction)
 
-        prevImageAction = QAction('Prev Image', self)
+        prevImageAction = _viewMenu.addAction('Prev Image')
         prevImageAction.setShortcut('Left')
         prevImageAction.triggered.connect(self.showPrevImage)
-        viewMenu.addAction(prevImageAction)
 
-        viewMenu.addSeparator()
+        _viewMenu.addSeparator()
 
-        self.nextActionAction = QAction('Next Action', self)
-        self.nextActionAction.setShortcut('Down')
-        self.nextActionAction.triggered.connect(self.showNextAction)
-        viewMenu.addAction(self.nextActionAction)
+        nextActionAction = _viewMenu.addAction('Next Action')
+        nextActionAction.setShortcut('Down')
+        nextActionAction.triggered.connect(self.showNextAction)
 
-        self.prevActionAction = QAction('Prev Action', self)
-        self.prevActionAction.setShortcut('Up')
-        self.prevActionAction.triggered.connect(self.showPrevAction)
-        viewMenu.addAction(self.prevActionAction)
+        prevActionAction = _viewMenu.addAction('Prev Action')
+        prevActionAction.setShortcut('Up')
+        prevActionAction.triggered.connect(self.showPrevAction)
 
-        viewMenu.addSeparator()
+        _viewMenu.addSeparator()
 
-        nextSceneAction = QAction('Next Scene', self)
+        nextSceneAction = _viewMenu.addAction('Next Scene')
         nextSceneAction.setShortcut('Ctrl+Down')
         nextSceneAction.triggered.connect(self.showNextScene)
-        viewMenu.addAction(nextSceneAction)
 
-        prevSceneAction = QAction('Prev Scene', self)
+        prevSceneAction = _viewMenu.addAction('Prev Scene')
         prevSceneAction.setShortcut('Ctrl+Up')
         prevSceneAction.triggered.connect(self.showPrevScene)
-        viewMenu.addAction(prevSceneAction)
 
-    def setupToggleMenu(self, editMenu):
-        togglePickAction = QAction('Toggle Pick', self)
+    def setupToggleMenu(self, _editMenu):
+        togglePickAction = _editMenu.addAction('Toggle Pick')
         togglePickAction.setShortcut('Tab')
         togglePickAction.triggered.connect(self.togglePick)
-        editMenu.addAction(togglePickAction)
 
-        toggleLoveAction = QAction('Toggle Love', self)
+        toggleLoveAction = _editMenu.addAction('Toggle Love')
         toggleLoveAction.setShortcut('Ctrl+Tab')
         toggleLoveAction.triggered.connect(self.toggleLove)
-        editMenu.addAction(toggleLoveAction)
 
-    def setupRatingMenu(self, editMenu):
+    def setupRatingMenu(self, _editMenu):
 
         def setRating(rating):
             self.curScene.setRating(rating)
             self.update()
 
-        ratingGroup = QActionGroup(self)
+        ratingGroup = QActionGroup(_editMenu)
         for rating in range(1, 5):
-            ratingAction = QAction('Rating %s' % RatingMap[rating], self)
+            ratingAction = _editMenu.addAction('Rating %s' % RatingMap[rating])
             ratingAction.setShortcut('%d' % rating)
             ratingAction.setCheckable(True)
             ratingAction.triggered.connect(lambda _, rating=rating: setRating(rating))
             ratingGroup.addAction(ratingAction)
-            editMenu.addAction(ratingAction)
 
             def update(ratingAction=ratingAction, rating=rating):
                 checked = self.curScene.getRawRating() == rating if self.curScene else False
                 ratingAction.setChecked(checked)
 
-            editMenu.aboutToShow.connect(update)
+            _editMenu.aboutToShow.connect(update)
+
+        _editMenu.addSeparator()
 
         def setGlobalRating(rating):
             self._globalRating = rating
 
-        ratingGroup = QActionGroup(self)
-        editMenu.addSeparator()
+        ratingGroup = QActionGroup(_editMenu)
         for rating in range(1, 5):
-            ratingAction = QAction('Global Rating %s' % RatingMap[rating], self)
+            ratingAction = _editMenu.addAction('Global Rating %s' % RatingMap[rating])
             ratingAction.setShortcut('Ctrl+%d' % rating)
             ratingAction.setCheckable(True)
             ratingAction.triggered.connect(lambda _, rating=rating: setGlobalRating(rating))
             ratingGroup.addAction(ratingAction)
-            editMenu.addAction(ratingAction)
 
             def update(ratingAction=ratingAction, rating=rating):
                 ratingAction.setChecked(self._globalRating == rating)
 
-            editMenu.aboutToShow.connect(update)
+            _editMenu.aboutToShow.connect(update)
 
-    def setupRepickMenu(self, editMenu):
-        repickMenu = editMenu.addMenu('&Repick')
+    def setupRepickMenu(self, _editMenu):
+        repickMenu = _editMenu.addMenu('&Repick')
 
-        repickAction = QAction('Repick 0', self)
+        repickAction = repickMenu.addAction('Repick 0')
         repickAction.setShortcut('Ctrl+Shift+9')
         repickAction.triggered.connect(lambda: self.repickScene(0, False))
-        repickMenu.addAction(repickAction)
 
         for faceNum in range(1, 6):
-            repickAction = QAction('Repick %d' % faceNum, self)
+            repickAction = repickMenu.addAction('Repick %d' % faceNum)
             repickAction.setShortcut('Ctrl+Shift+%d' % faceNum)
             repickAction.triggered.connect(
                 lambda _, faceNum=faceNum: self.repickScene(faceNum, False)
             )
-            repickMenu.addAction(repickAction)
 
-            repickAction = QAction('Repick %d (Debug)' % faceNum, self)
+            repickAction = repickMenu.addAction('Repick %d (Debug)' % faceNum)
             repickAction.triggered.connect(
                 lambda _, faceNum=faceNum: self.repickScene(faceNum, True)
             )
-            repickMenu.addAction(repickAction)
 
-    def setupModifyMenu(self, editMenu):
-        moveForwardAction = QAction('Move Action Forward', self)
+    def setupModifyMenu(self, _editMenu):
+        moveForwardAction = _editMenu.addAction('Move Action Forward')
         moveForwardAction.setShortcut('Ctrl+Shift+Up')
         moveForwardAction.triggered.connect(self.moveActionForward)
-        editMenu.addAction(moveForwardAction)
 
-        moveBackwardAction = QAction('Move Action Backward', self)
+        moveBackwardAction = _editMenu.addAction('Move Action Backward')
         moveBackwardAction.setShortcut('Ctrl+Shift+Down')
         moveBackwardAction.triggered.connect(self.moveActionBackward)
-        editMenu.addAction(moveBackwardAction)
 
-        deleteSceneAction = QAction('Delete Scene', self)
+        deleteSceneAction = _editMenu.addAction('Delete Scene')
         deleteSceneAction.setShortcut('Ctrl+Shift+Delete')
         deleteSceneAction.triggered.connect(self.deleteScenen)
-        editMenu.addAction(deleteSceneAction)
 
-    def refresh(self):
-        self._sidx = 0
+    def refresh(self, database, sceneIdx):
+        self._database = database
+        self._sidx = self._database.normalizeSceneIdx(sceneIdx)
         self._aidx = 0
         self._iidx = 0
         self._pidx = 0
@@ -579,8 +571,10 @@ class Editor(QWidget, Ui_Editor):
         self.img.setPixmap(pixmap)
 
     def _updateWindowTitle(self):
+        from PyQt5.QtCore import QCoreApplication
+        applicationName = QCoreApplication.applicationName()
         if self.isInvalid():
-            self.window().setWindowTitle('CGPicker')
+            self.window().setWindowTitle(applicationName)
             return
         ratingStr = RatingMap[self.curScene.getRating()]
         if self._viewMode == ViewMode.SELECT:
@@ -590,9 +584,9 @@ class Editor(QWidget, Ui_Editor):
         elif self._viewMode == ViewMode.LOVE:
             viewModeStr = 'LOVE'
         self.window().setWindowTitle(
-            u'CGPicker 《%s》[%d/%d] (%s) %s' % (
-                self._database.getCGName(), self._sidx + 1, self._database.getSceneNum(), ratingStr,
-                viewModeStr
+            u'%s 《%s》[%d/%d] (%s) %s' % (
+                applicationName, self._database.getCGName(), self._sidx + 1,
+                self._database.getSceneNum(), ratingStr, viewModeStr
             )
         )
 
