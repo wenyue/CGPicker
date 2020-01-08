@@ -3,6 +3,7 @@
 
 import os
 import json
+import copy
 import shutil
 from datetime import datetime, timezone
 
@@ -14,17 +15,17 @@ class Action(object):
 
     def __init__(self, CGRoot, actionProto, sceneFnames):
         self._CGRoot = CGRoot
-        self._fnames = actionProto
+        self._fnames = actionProto.copy()
         self._sceneFnames = sceneFnames
 
     def serialize(self):
         return self._fnames
 
     # Only called by Scene class
-    def renameImage(self, imagePath, toName):
-        index = self.indexImage(imagePath)
-        if index is not None:
-            self._fnames[index] = toName
+    def renameImage(self, namesMap):
+        for idx, fname in enumerate(self._fnames):
+            if fname in namesMap:
+                self._fnames[idx] = namesMap[fname]
 
     def indexImage(self, imagePath):
         fname = os.path.basename(imagePath)
@@ -79,6 +80,9 @@ class Pick(Action):
             return
         fname = os.path.basename(imagePath)
         self._fnames.remove(fname)
+
+    def merge(self, pick):
+        self._fnames += pick._fnames
 
 
 class Face(object):
@@ -138,20 +142,23 @@ class Scene(object):
         }
 
     def normalizeImages(self, imageIndex):
+        namesMap = {}
         for action in self._actions:
             for idx in range(action.getImageNum()):
-                image = action.getImage(idx)
-                _, extend = os.path.splitext(image)
+                fname = action.getFname(idx)
+                _, extend = os.path.splitext(fname)
                 toName = '%04d%s' % (imageIndex, extend)
                 imageIndex += 1
-                if (os.path.basename(image) == toName):
+                if (fname == toName):
                     continue
-                action.renameImage(image, toName)
-                self._pick.renameImage(image, toName)
-                self._love.renameImage(image, toName)
+                namesMap[fname] = toName
                 toImage = os.path.join(self._CGRoot, macro.TMP_NAME, toName)
                 os.makedirs(os.path.join(self._CGRoot, macro.TMP_NAME), exist_ok=True)
-                shutil.move(image, toImage)
+                shutil.move(action.getImage(idx), toImage)
+        for action in self._actions:
+            action.renameImage(namesMap)
+        self._pick.renameImage(namesMap)
+        self._love.renameImage(namesMap)
         self._updateSceneFnames()
         return imageIndex
 
@@ -171,11 +178,39 @@ class Scene(object):
         self._pick.sort()
         self._love.sort()
 
-    def getDatetime(self):
-        self._datetime
+    def delAction(self, action):
+        if len(self._actions) == 1:
+            return False
+        self._actions.remove(action)
+        self._updateSceneFnames()
+        for idx in range(action.getImageNum()):
+            image = action.getImage(idx)
+            self._pick.delImage(image)
+            self._love.delImage(image)
+        return True
 
-    def updateDatetime(self):
-        self._datetime = datetime.now()
+    def split(self, action):
+        index = self._actions.index(action)
+        if index == 0:
+            return None
+        new_scene = copy.deepcopy(self)
+        for action in self._actions[index:]:
+            self.delAction(action)
+        for action in new_scene._actions[:index]:
+            new_scene.delAction(action)
+        return new_scene
+
+    def merge(self, scene):
+        self._actions += scene._actions
+        self._updateSceneFnames()
+        self._pick.merge(scene._pick)
+        self._love.merge(scene._love)
+
+    def getDatetime(self):
+        return self._datetime
+
+    def setDatetime(self, datetime):
+        self._datetime = datetime
 
     def getImages(self):
         return [
@@ -212,7 +247,8 @@ class Scene(object):
     def indexImage(self, imagePath):
         aidx, iidx = next(((aidx, action.indexImage(imagePath))
                            for aidx, action in enumerate(self._actions)
-                           if action.indexImage(imagePath) is not None), (None, None))
+                           if action.indexImage(imagePath) is not None),
+                          (None, None))
         return aidx, iidx
 
     def normalizeActionIdx(self, index, loop=False):
@@ -276,8 +312,34 @@ class Database(object):
     def getCGName(self):
         return os.path.basename(self._CGRoot)
 
+    def moveSceneForward(self, scene):
+        index = self.normalizeSceneIdx(self._scenes.index(scene) - 1)
+        self._scenes.remove(scene)
+        self._scenes.insert(index, scene)
+
+    def moveSceneBackward(self, scene):
+        index = self.normalizeSceneIdx(self._scenes.index(scene) + 1)
+        self._scenes.remove(scene)
+        self._scenes.insert(index, scene)
+
     def delScene(self, scene):
         self._scenes.remove(scene)
+
+    def splitScene(self, scene, action):
+        new_scene = scene.split(action)
+        if new_scene is None:
+            return False
+        index = self._scenes.index(scene) + 1
+        self._scenes.insert(index, new_scene)
+        return True
+
+    def mergeScene(self, scene):
+        index = self._scenes.index(scene) - 1
+        if index < 0:
+            return False
+        self._scenes[index].merge(scene)
+        self._scenes.remove(scene)
+        return True
 
     def getScene(self, index):
         return self._scenes[index] if index < len(self._scenes) else None

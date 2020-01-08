@@ -3,15 +3,14 @@
 
 from enum import Enum
 
-from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QWidget, QActionGroup
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QLabel, QActionGroup
 from PyQt5.QtCore import QPoint, QSize, QRect, QTimer, Qt
 from PyQt5.QtGui import QPixmap, QPen, QPainter
 from template.ui_editor import Ui_Editor
 
 from ui.face import Face
 
-RatingMap = (u'#', u'☆', u'☆☆', u'☆☆☆', u'❤')
+from common import macro
 
 
 class ViewMode(Enum):
@@ -26,23 +25,49 @@ class Editor(QWidget, Ui_Editor):
         super(Editor, self).__init__(*args, **kwargs)
         self.setupUi(self)
 
-        self.faceLayout = QtWidgets.QHBoxLayout(self.faces)
-        self.faceLayout.setSpacing(0)
+        self.faceContainer.resizeEvent = self._onFaceContainerResize
+        self.faceLayout = QHBoxLayout(self.faceContainer)
+        self.faceLayout.setSpacing(3)
         self.home.setVisible(False)
         self.actionNum.setStyleSheet('font-size:30px')
         self.actionNum.setText('number')
 
-        self._imageCtrlHandler = ImageCtrlHandler(self.img, self.imgFrame)
+        self._viewMenu = None
+        self._editMenu = None
+        self._imageCtrlHandler = ImageCtrlHandler(self.imgFrame)
         self._faceCtrls = []
+
+    def init(self, database, sceneIdx):
+        self._database = database
+
         self._viewMode = ViewMode.PICK
         self._lastViewMode = ViewMode.PICK
         self._lockViewMode = ViewMode.PICK
-
-        self._saveCounter = 0
         self._globalRating = 2
+        self._saveCounter = 0
 
-        self._viewMenu = None
-        self._editMenu = None
+        self._sidx = self._database.normalizeSceneIdx(sceneIdx)
+        self._aidx = 0
+        self._iidx = 0
+        self._pidx = 0
+        self._lidx = 0
+
+        self._update()
+
+    def refresh(self):
+        self._viewMode = ViewMode.PICK
+        self._lastViewMode = ViewMode.PICK
+        self._lockViewMode = ViewMode.PICK
+        self._globalRating = 2
+        self._saveCounter = 0
+
+        self._sidx = 0
+        self._aidx = 0
+        self._iidx = 0
+        self._pidx = 0
+        self._lidx = 0
+
+        self._update()
 
     def setVisible(self, isVisible):
         super(Editor, self).setVisible(isVisible)
@@ -58,9 +83,6 @@ class Editor(QWidget, Ui_Editor):
                 action.setEnabled(isEnabled)
             self._editMenu.menuAction().setVisible(isEnabled)
 
-    def getSceneIdx(self):
-        return self._sidx
-
     def keyReleaseEvent(self, event):
         if event.key() == Qt.Key_Control:
             facesProto = self._imageCtrlHandler.stopDrawing()
@@ -70,7 +92,11 @@ class Editor(QWidget, Ui_Editor):
 
     @property
     def curScene(self):
-        return self._database.getScene(self._sidx)
+        return self._database and self._database.getScene(self._sidx)
+
+    @property
+    def curSceneIdx(self):
+        return self._sidx
 
     @property
     def curAction(self):
@@ -110,48 +136,54 @@ class Editor(QWidget, Ui_Editor):
         return self.curAction is None
 
     def setupMainMenu(self, menubar):
-        _viewMenu = menubar.addMenu('&View')
-        self._viewMenu = _viewMenu
-        self.setupViewModeMenu(_viewMenu)
+        # View menu
+        viewMenu = menubar.addMenu('&View')
+        self._viewMenu = viewMenu
+        self.setupViewModeMenu(viewMenu)
 
-        _viewMenu.addSeparator()
-        self.setupLockViewModeMenu(_viewMenu)
+        viewMenu.addSeparator()
+        self.setupLockViewModeMenu(viewMenu)
 
-        _viewMenu.addSeparator()
-        self.setupNavigatorMenu(_viewMenu)
+        viewMenu.addSeparator()
+        self.setupNavigatorMenu(viewMenu)
 
-        _editMenu = menubar.addMenu('&Edit')
-        self._editMenu = _editMenu
-        self.setupToggleMenu(_editMenu)
+        # Edit menu
+        editMenu = menubar.addMenu('&Edit')
+        self._editMenu = editMenu
+        self.setupToggleMenu(editMenu)
 
-        _editMenu.addSeparator()
-        self.setupRatingMenu(_editMenu)
+        editMenu.addSeparator()
+        self.setupRatingMenu(editMenu)
 
-        _editMenu.addSeparator()
-        self.setupRepickMenu(_editMenu)
+        editMenu.addSeparator()
+        self.setupRepickMenu(editMenu)
 
-        _editMenu.addSeparator()
-        self.setupModifyMenu(_editMenu)
+        editMenu.addSeparator()
+        self.setupModifyMenu(editMenu)
 
+        #  Refresh visibility
         self._setMenuEnabled(self.isVisible())
 
-    def setupViewModeMenu(self, _viewMenu):
-        normalViewAction = _viewMenu.addAction('Normal View')
+    def setupViewModeMenu(self, viewMenu):
+        normalViewAction = viewMenu.addAction('Normal View')
         normalViewAction.setShortcut('Q')
+        normalViewAction.setAutoRepeat(False)
         normalViewAction.setCheckable(True)
         normalViewAction.triggered.connect(lambda: self.setViewMode(ViewMode.SELECT))
 
-        pickViewAction = _viewMenu.addAction('Pick View')
+        pickViewAction = viewMenu.addAction('Pick View')
         pickViewAction.setShortcut('W')
+        pickViewAction.setAutoRepeat(False)
         pickViewAction.setCheckable(True)
         pickViewAction.triggered.connect(lambda: self.setViewMode(ViewMode.PICK))
 
-        loveViewAction = _viewMenu.addAction('Love View')
+        loveViewAction = viewMenu.addAction('Love View')
         loveViewAction.setShortcut('E')
+        loveViewAction.setAutoRepeat(False)
         loveViewAction.setCheckable(True)
         loveViewAction.triggered.connect(lambda: self.setViewMode(ViewMode.LOVE))
 
-        viewModeGroup = QActionGroup(_viewMenu)
+        viewModeGroup = QActionGroup(viewMenu)
         viewModeGroup.addAction(normalViewAction)
         viewModeGroup.addAction(pickViewAction)
         viewModeGroup.addAction(loveViewAction)
@@ -164,25 +196,28 @@ class Editor(QWidget, Ui_Editor):
             elif self._viewMode == ViewMode.LOVE:
                 loveViewAction.setChecked(True)
 
-        _viewMenu.aboutToShow.connect(update)
+        viewMenu.aboutToShow.connect(update)
 
-    def setupLockViewModeMenu(self, _viewMenu):
-        lockNormalViewAction = _viewMenu.addAction('Lock Normal View')
+    def setupLockViewModeMenu(self, viewMenu):
+        lockNormalViewAction = viewMenu.addAction('Lock Normal View')
         lockNormalViewAction.setShortcut('Ctrl+Q')
+        lockNormalViewAction.setAutoRepeat(False)
         lockNormalViewAction.setCheckable(True)
         lockNormalViewAction.triggered.connect(lambda: self.setLockViewMode(ViewMode.SELECT))
 
-        lockPickViewAction = _viewMenu.addAction('Lock Pick View')
+        lockPickViewAction = viewMenu.addAction('Lock Pick View')
         lockPickViewAction.setShortcut('Ctrl+W')
+        lockPickViewAction.setAutoRepeat(False)
         lockPickViewAction.setCheckable(True)
         lockPickViewAction.triggered.connect(lambda: self.setLockViewMode(ViewMode.PICK))
 
-        lockLoveViewAction = _viewMenu.addAction('Lock Love View')
+        lockLoveViewAction = viewMenu.addAction('Lock Love View')
         lockLoveViewAction.setShortcut('Ctrl+E')
+        lockLoveViewAction.setAutoRepeat(False)
         lockLoveViewAction.setCheckable(True)
         lockLoveViewAction.triggered.connect(lambda: self.setLockViewMode(ViewMode.LOVE))
 
-        lockViewModeGroup = QActionGroup(_viewMenu)
+        lockViewModeGroup = QActionGroup(viewMenu)
         lockViewModeGroup.addAction(lockNormalViewAction)
         lockViewModeGroup.addAction(lockPickViewAction)
         lockViewModeGroup.addAction(lockLoveViewAction)
@@ -195,81 +230,81 @@ class Editor(QWidget, Ui_Editor):
             elif self._lockViewMode == ViewMode.LOVE:
                 lockLoveViewAction.setChecked(True)
 
-        _viewMenu.aboutToShow.connect(update)
+        viewMenu.aboutToShow.connect(update)
 
-    def setupNavigatorMenu(self, _viewMenu):
-        selectImageAction = _viewMenu.addAction('&Select Image')
+    def setupNavigatorMenu(self, viewMenu):
+        selectImageAction = viewMenu.addAction('&Select Image')
         selectImageAction.setShortcut('Space')
+        selectImageAction.setAutoRepeat(False)
         selectImageAction.triggered.connect(self.selectImage)
 
-        _viewMenu.addSeparator()
+        viewMenu.addSeparator()
 
-        nextImageAction = _viewMenu.addAction('Next Image')
+        nextImageAction = viewMenu.addAction('Next Image')
         nextImageAction.setShortcut('Right')
         nextImageAction.triggered.connect(self.showNextImage)
 
-        prevImageAction = _viewMenu.addAction('Prev Image')
+        prevImageAction = viewMenu.addAction('Prev Image')
         prevImageAction.setShortcut('Left')
         prevImageAction.triggered.connect(self.showPrevImage)
 
-        _viewMenu.addSeparator()
+        viewMenu.addSeparator()
 
-        nextActionAction = _viewMenu.addAction('Next Action')
+        nextActionAction = viewMenu.addAction('Next Action')
         nextActionAction.setShortcut('Down')
         nextActionAction.triggered.connect(self.showNextAction)
 
-        prevActionAction = _viewMenu.addAction('Prev Action')
+        prevActionAction = viewMenu.addAction('Prev Action')
         prevActionAction.setShortcut('Up')
         prevActionAction.triggered.connect(self.showPrevAction)
 
-        _viewMenu.addSeparator()
+        viewMenu.addSeparator()
 
-        nextSceneAction = _viewMenu.addAction('Next Scene')
-        nextSceneAction.setShortcut('Ctrl+Down')
+        nextSceneAction = viewMenu.addAction('Next Scene')
+        nextSceneAction.setShortcut('PgDown')
         nextSceneAction.triggered.connect(self.showNextScene)
 
-        prevSceneAction = _viewMenu.addAction('Prev Scene')
-        prevSceneAction.setShortcut('Ctrl+Up')
+        prevSceneAction = viewMenu.addAction('Prev Scene')
+        prevSceneAction.setShortcut('PgUp')
         prevSceneAction.triggered.connect(self.showPrevScene)
 
-    def setupToggleMenu(self, _editMenu):
-        togglePickAction = _editMenu.addAction('Toggle Pick')
+    def setupToggleMenu(self, editMenu):
+        togglePickAction = editMenu.addAction('Toggle Pick')
         togglePickAction.setShortcut('Tab')
+        togglePickAction.setAutoRepeat(False)
         togglePickAction.triggered.connect(self.togglePick)
 
-        toggleLoveAction = _editMenu.addAction('Toggle Love')
+        toggleLoveAction = editMenu.addAction('Toggle Love')
         toggleLoveAction.setShortcut('Ctrl+Tab')
+        toggleLoveAction.setAutoRepeat(False)
         toggleLoveAction.triggered.connect(self.toggleLove)
 
-    def setupRatingMenu(self, _editMenu):
-
-        def setRating(rating):
-            self.curScene.setRating(rating)
-            self.update()
-
-        ratingGroup = QActionGroup(_editMenu)
+    def setupRatingMenu(self, editMenu):
+        ratingGroup = QActionGroup(editMenu)
         for rating in range(1, 5):
-            ratingAction = _editMenu.addAction('Rating %s' % RatingMap[rating])
+            ratingAction = editMenu.addAction('Rating %s' % macro.RATING_MAP[rating])
             ratingAction.setShortcut('%d' % rating)
+            ratingAction.setAutoRepeat(False)
             ratingAction.setCheckable(True)
-            ratingAction.triggered.connect(lambda _, rating=rating: setRating(rating))
+            ratingAction.triggered.connect(lambda _, rating=rating: self.setRating(rating))
             ratingGroup.addAction(ratingAction)
 
             def update(ratingAction=ratingAction, rating=rating):
                 checked = self.curScene.getRawRating() == rating if self.curScene else False
                 ratingAction.setChecked(checked)
 
-            _editMenu.aboutToShow.connect(update)
+            editMenu.aboutToShow.connect(update)
 
-        _editMenu.addSeparator()
+        editMenu.addSeparator()
 
         def setGlobalRating(rating):
             self._globalRating = rating
 
-        ratingGroup = QActionGroup(_editMenu)
+        ratingGroup = QActionGroup(editMenu)
         for rating in range(1, 5):
-            ratingAction = _editMenu.addAction('Global Rating %s' % RatingMap[rating])
+            ratingAction = editMenu.addAction('Global Rating %s' % macro.RATING_MAP[rating])
             ratingAction.setShortcut('Ctrl+%d' % rating)
+            ratingAction.setAutoRepeat(False)
             ratingAction.setCheckable(True)
             ratingAction.triggered.connect(lambda _, rating=rating: setGlobalRating(rating))
             ratingGroup.addAction(ratingAction)
@@ -277,18 +312,20 @@ class Editor(QWidget, Ui_Editor):
             def update(ratingAction=ratingAction, rating=rating):
                 ratingAction.setChecked(self._globalRating == rating)
 
-            _editMenu.aboutToShow.connect(update)
+            editMenu.aboutToShow.connect(update)
 
-    def setupRepickMenu(self, _editMenu):
-        repickMenu = _editMenu.addMenu('&Repick')
+    def setupRepickMenu(self, editMenu):
+        repickMenu = editMenu.addMenu('&Repick')
 
         repickAction = repickMenu.addAction('Repick 0')
         repickAction.setShortcut('Ctrl+Shift+9')
+        repickAction.setAutoRepeat(False)
         repickAction.triggered.connect(lambda: self.repickScene(0, False))
 
         for faceNum in range(1, 6):
             repickAction = repickMenu.addAction('Repick %d' % faceNum)
             repickAction.setShortcut('Ctrl+Shift+%d' % faceNum)
+            repickAction.setAutoRepeat(False)
             repickAction.triggered.connect(
                 lambda _, faceNum=faceNum: self.repickScene(faceNum, False)
             )
@@ -298,38 +335,59 @@ class Editor(QWidget, Ui_Editor):
                 lambda _, faceNum=faceNum: self.repickScene(faceNum, True)
             )
 
-    def setupModifyMenu(self, _editMenu):
-        moveForwardAction = _editMenu.addAction('Move Action Forward')
-        moveForwardAction.setShortcut('Ctrl+Shift+Up')
-        moveForwardAction.triggered.connect(self.moveActionForward)
+    def setupModifyMenu(self, editMenu):
+        moveActionForwardAction = editMenu.addAction('Move Action Forward')
+        moveActionForwardAction.setShortcut('Ctrl+Shift+Up')
+        moveActionForwardAction.setAutoRepeat(False)
+        moveActionForwardAction.triggered.connect(self.moveActionForward)
 
-        moveBackwardAction = _editMenu.addAction('Move Action Backward')
-        moveBackwardAction.setShortcut('Ctrl+Shift+Down')
-        moveBackwardAction.triggered.connect(self.moveActionBackward)
+        moveActionBackwardAction = editMenu.addAction('Move Action Backward')
+        moveActionBackwardAction.setShortcut('Ctrl+Shift+Down')
+        moveActionBackwardAction.setAutoRepeat(False)
+        moveActionBackwardAction.triggered.connect(self.moveActionBackward)
 
-        deleteSceneAction = _editMenu.addAction('Delete Scene')
+        deleteActionAction = editMenu.addAction('Delete Action')
+        deleteActionAction.setShortcut('Ctrl+Shift+Backspace')
+        deleteActionAction.setAutoRepeat(False)
+        deleteActionAction.triggered.connect(self.deleteAction)
+
+        editMenu.addSeparator()
+
+        moveSceneForwardAction = editMenu.addAction('Move Scene Forward')
+        moveSceneForwardAction.setShortcut('Ctrl+Shift+PgUp')
+        moveSceneForwardAction.setAutoRepeat(False)
+        moveSceneForwardAction.triggered.connect(self.moveSceneForward)
+
+        moveSceneBackwardAction = editMenu.addAction('Move Scene Backward')
+        moveSceneBackwardAction.setShortcut('Ctrl+Shift+PgDown')
+        moveSceneBackwardAction.setAutoRepeat(False)
+        moveSceneBackwardAction.triggered.connect(self.moveSceneBackward)
+
+        deleteSceneAction = editMenu.addAction('Delete Scene')
         deleteSceneAction.setShortcut('Ctrl+Shift+Delete')
-        deleteSceneAction.triggered.connect(self.deleteScenen)
+        deleteSceneAction.setAutoRepeat(False)
+        deleteSceneAction.triggered.connect(self.deleteScene)
 
-    def refresh(self, database, sceneIdx):
-        self._database = database
-        self._sidx = self._database.normalizeSceneIdx(sceneIdx)
-        self._aidx = 0
-        self._iidx = 0
-        self._pidx = 0
-        self._lidx = 0
-        self.update()
+        splitSceneAction = editMenu.addAction('Split Scene')
+        splitSceneAction.setShortcut('Ctrl+Shift+\\')
+        splitSceneAction.setAutoRepeat(False)
+        splitSceneAction.triggered.connect(self.splitScene)
+
+        mergeSceneAction = editMenu.addAction('Merge Scene')
+        mergeSceneAction.setShortcut('Ctrl+Shift+M')
+        mergeSceneAction.setAutoRepeat(False)
+        mergeSceneAction.triggered.connect(self.mergeScene)
 
     def setViewMode(self, viewMode):
         if self._viewMode == viewMode:
             if self._viewMode == ViewMode.SELECT:
                 self._viewMode = self._lastViewMode
                 self._lastViewMode = ViewMode.SELECT
-                self.update()
+                self._update()
         else:
             self._lastViewMode = self._viewMode
             self._viewMode = viewMode
-            self.update()
+            self._update()
 
     def setLockViewMode(self, viewMode):
         self._lockViewMode = viewMode
@@ -357,7 +415,7 @@ class Editor(QWidget, Ui_Editor):
             self._lidx = action.normalizeImageIdx(self._lidx + 1, loop=True)
             if self._lidx == 0:
                 self.showHomeFlag()
-        self.update()
+        self._update()
 
     def showPrevImage(self):
         if self.isInvalid():
@@ -373,7 +431,7 @@ class Editor(QWidget, Ui_Editor):
             self._lidx = action.normalizeImageIdx(self._lidx - 1, loop=True)
             if self._lidx == 0:
                 self.showHomeFlag()
-        self.update()
+        self._update()
 
     def showNextAction(self):
         if self.isInvalid() or self._viewMode != ViewMode.SELECT:
@@ -382,7 +440,7 @@ class Editor(QWidget, Ui_Editor):
         self._aidx = self.curScene.normalizeActionIdx(self._aidx + 1, loop=True)
         if self._aidx == 0:
             self.showHomeFlag()
-        self.update()
+        self._update()
 
     def showPrevAction(self):
         if self.isInvalid() or self._viewMode != ViewMode.SELECT:
@@ -391,10 +449,10 @@ class Editor(QWidget, Ui_Editor):
         self._aidx = self.curScene.normalizeActionIdx(self._aidx - 1, loop=True)
         if self._aidx == 0:
             self.showHomeFlag()
-        self.update()
+        self._update()
 
-    def showNextScene(self):
-        if self.isInvalid():
+    def showNextScene(self, needCheck=True):
+        if needCheck and self.isInvalid():
             return
         self._viewMode = self._lockViewMode
         self._sidx = self._database.normalizeSceneIdx(self._sidx + 1)
@@ -404,10 +462,10 @@ class Editor(QWidget, Ui_Editor):
         self._lidx = 0
         self._imageCtrlHandler.stopDrawing()
         self.saveDatabase()
-        self.update()
+        self._update()
 
-    def showPrevScene(self):
-        if self.isInvalid():
+    def showPrevScene(self, needCheck=True):
+        if needCheck and self.isInvalid():
             return
         self._viewMode = self._lockViewMode
         self._sidx = self._database.normalizeSceneIdx(self._sidx - 1)
@@ -417,7 +475,7 @@ class Editor(QWidget, Ui_Editor):
         self._lidx = 0
         self._imageCtrlHandler.stopDrawing()
         self.saveDatabase()
-        self.update()
+        self._update()
 
     def togglePick(self):
         if self.isInvalid() or self.curImage is None:
@@ -429,7 +487,7 @@ class Editor(QWidget, Ui_Editor):
             self._pidx = pick.normalizeImageIdx(self._pidx)
         else:
             pick.addImage(image)
-        self.update()
+        self._update()
 
     def toggleLove(self):
         if self.isInvalid() or self.curImage is None:
@@ -443,7 +501,13 @@ class Editor(QWidget, Ui_Editor):
             love.addImage(image)
             if self.curScene.getRawRating() == 0:
                 self.curScene.setRating(self._globalRating)
-        self.update()
+        self._update()
+
+    def setRating(self, rating):
+        if self.isInvalid():
+            return
+        self.curScene.setRating(rating)
+        self._update()
 
     def repickScene(self, faceNum, debug):
         if self.isInvalid():
@@ -458,7 +522,7 @@ class Editor(QWidget, Ui_Editor):
         self._iidx = 0
         self._pidx = 0
         self._lidx = 0
-        self.update()
+        self._update()
 
     def repickSceneWithFaces(self, facesProto):
         if self.isInvalid():
@@ -473,28 +537,63 @@ class Editor(QWidget, Ui_Editor):
         self._iidx = 0
         self._pidx = 0
         self._lidx = 0
-        self.update()
+        self._update()
 
     def moveActionForward(self):
         if self.isInvalid() or self._viewMode != ViewMode.SELECT:
             return
         self.curScene.moveActionForward(self.curAction)
         self._aidx = self.curScene.normalizeActionIdx(self._aidx - 1)
-        self.update()
+        self._update()
 
     def moveActionBackward(self):
         if self.isInvalid() or self._viewMode != ViewMode.SELECT:
             return
         self.curScene.moveActionBackward(self.curAction)
         self._aidx = self.curScene.normalizeActionIdx(self._aidx + 1)
-        self.update()
+        self._update()
 
-    def deleteScenen(self):
+    def deleteAction(self):
+        if self.isInvalid() or self._viewMode != ViewMode.SELECT:
+            return
+        if self.curScene.delAction(self.curAction):
+            self._aidx = self.curScene.normalizeActionIdx(self._aidx)
+            self._update()
+        else:
+            self.deleteScene()
+
+    def moveSceneForward(self):
+        if self.isInvalid():
+            return
+        self._database.moveSceneForward(self.curScene)
+        self._sidx = self._database.normalizeSceneIdx(self._sidx - 1)
+        self._update()
+
+    def moveSceneBackward(self):
+        if self.isInvalid():
+            return
+        self._database.moveSceneBackward(self.curScene)
+        self._sidx = self._database.normalizeSceneIdx(self._sidx + 1)
+        self._update()
+
+    def deleteScene(self):
         if self.isInvalid():
             return
         self._database.delScene(self.curScene)
         self._sidx = self._database.normalizeSceneIdx(self._sidx)
-        self.update()
+        self._update()
+
+    def splitScene(self):
+        if self.isInvalid() or self._viewMode != ViewMode.SELECT:
+            return
+        if self._database.splitScene(self.curScene, self.curAction):
+            self.showNextScene(needCheck=False)
+
+    def mergeScene(self):
+        if self.isInvalid():
+            return
+        if self._database.mergeScene(self.curScene):
+            self.showPrevScene(needCheck=False)
 
     def saveDatabase(self):
         self._saveCounter += 1
@@ -510,7 +609,7 @@ class Editor(QWidget, Ui_Editor):
         self.home.move(QPoint((cw - hw) / 2, (ch - hh) / 2))
         QTimer.singleShot(200, lambda: self.home.setVisible(False))
 
-    def update(self):
+    def _update(self):
         self._updateActionNum()
         self._updateFaceCtrls()
         self._updateImageCtrl()
@@ -524,7 +623,7 @@ class Editor(QWidget, Ui_Editor):
         self.actionNum.setText('%d/%d' % (aidx + 1, self.curScene.getActionNum()))
 
     def _updateFaceCtrls(self):
-        if self.isInvalid() or self.curImage is None:
+        if self.isInvalid():
             self.faceFrame.setVisible(False)
             return
         self.faceFrame.setVisible(True)
@@ -535,7 +634,7 @@ class Editor(QWidget, Ui_Editor):
         actionIdx = 0
         for idx in range(self.curAction.getImageNum()):
             if idx >= len(self._faceCtrls):
-                ctrl = Face(self.faces)
+                ctrl = Face(self.faceContainer)
                 self.faceLayout.addWidget(ctrl)
                 self._faceCtrls.append(ctrl)
             else:
@@ -545,7 +644,6 @@ class Editor(QWidget, Ui_Editor):
             ctrl.setFace(image, self.curScene.getFaces())
             if self.curImage == image:
                 ctrl.selected(True)
-                selected_ctrl = ctrl
             else:
                 ctrl.selected(False)
             ctrl.star.setVisible(self.curPick.hasImage(image))
@@ -558,17 +656,24 @@ class Editor(QWidget, Ui_Editor):
                 ctrl.starNum.setText(str(action.getImageNum()))
             else:
                 ctrl.starNum.setText('')
-        hbar = self.faceFrame.horizontalScrollBar()
-        hbarVal = selected_ctrl.pos().x() - self.faceFrame.width() / 2 + selected_ctrl.width() / 2
-        hbar.setValue(hbarVal)
+
+        self._updateScrollBar()
 
     def _updateImageCtrl(self):
-        if self.isInvalid() or self.curImage is None:
+        if self.isInvalid():
             self.imgFrame.setVisible(False)
             return
         self.imgFrame.setVisible(True)
-        pixmap = QPixmap(self.curImage)
+        pixmap = None
+        if self.curImage is None:
+            self.img.setEnabled(False)
+            firstImage = self.curScene.getAction(0).getImage(0)
+            pixmap = QPixmap(firstImage)
+        else:
+            self.img.setEnabled(True)
+            pixmap = QPixmap(self.curImage)
         self.img.setPixmap(pixmap)
+        self.rating.setText(macro.RATING_MAP[self.curScene.getRating()])
 
     def _updateWindowTitle(self):
         from PyQt5.QtCore import QCoreApplication
@@ -576,7 +681,6 @@ class Editor(QWidget, Ui_Editor):
         if self.isInvalid():
             self.window().setWindowTitle(applicationName)
             return
-        ratingStr = RatingMap[self.curScene.getRating()]
         if self._viewMode == ViewMode.SELECT:
             viewModeStr = 'SELECT'
         elif self._viewMode == ViewMode.PICK:
@@ -584,11 +688,26 @@ class Editor(QWidget, Ui_Editor):
         elif self._viewMode == ViewMode.LOVE:
             viewModeStr = 'LOVE'
         self.window().setWindowTitle(
-            u'%s 《%s》[%d/%d] (%s) %s' % (
+            u'%s 《%s》[%d/%d] %s' % (
                 applicationName, self._database.getCGName(), self._sidx + 1,
-                self._database.getSceneNum(), ratingStr, viewModeStr
+                self._database.getSceneNum(), viewModeStr
             )
         )
+
+    def _onFaceContainerResize(self, event):
+        self._updateScrollBar()
+
+    def _updateScrollBar(self):
+        selected_ctrl = None
+        for ctrl in self._faceCtrls:
+            if ctrl.getImage() == self.curImage:
+                selected_ctrl = ctrl
+                break
+        if selected_ctrl is None:
+            return
+        hbar = self.faceFrame.horizontalScrollBar()
+        hbarVal = selected_ctrl.pos().x() - self.faceFrame.width() / 2 + selected_ctrl.width() / 2
+        hbar.setValue(hbarVal)
 
 
 class ImageCtrlHandler(object):
@@ -618,13 +737,16 @@ class ImageCtrlHandler(object):
                 left * widthFactor, top * heightFactor, right * widthFactor, bottom * heightFactor
             ]
 
-    def __init__(self, imageCtrl, frameCtrl):
-        self.img = imageCtrl
-        self.imgFrame = frameCtrl
-        self.img.paintEvent = self._paintImageCtrl
-        self.img.mousePressEvent = self._mousePressOnImageCtrl
-        self.img.mouseReleaseEvent = self._mouseReleaseOnImageCtrl
-        self.img.mouseMoveEvent = self._mouseMoveOnImageCtrl
+    def __init__(self, frameCtrl):
+        self.frameCtrl = frameCtrl
+        self.frameCtrl.resizeEvent = self._onResize
+        self.rating = frameCtrl.findChild(QLabel, 'rating')
+        self.rating.paintEvent = self._paintRatingCtrl
+        self.img = frameCtrl.findChild(QLabel, 'img')
+        self.img.paintEvent = self._paintImgCtrl
+        self.img.mousePressEvent = self._mousePressOnImgCtrl
+        self.img.mouseReleaseEvent = self._mouseReleaseOnImgCtrl
+        self.img.mouseMoveEvent = self._mouseMoveOnImgCtrl
 
         self._faces = []
         self._drawingFace = False
@@ -635,23 +757,30 @@ class ImageCtrlHandler(object):
         self._drawingFace = False
         return facesProto
 
-    def _paintImageCtrl(self, event):
-        self._updateImage(event)
-        self._updateFaces(event)
+    def _onResize(self, event):
+        self._updateRating(event)
 
-    def _updateImage(self, event):
+    def _paintRatingCtrl(self, event):
+        self._updateRating(event)
+        QLabel.paintEvent(self.rating, event)
+
+    def _paintImgCtrl(self, event):
+        self._paintImage(event)
+        self._paintFaces(event)
+
+    def _paintImage(self, event):
         pw = self.img.pixmap().width()
         ph = self.img.pixmap().height()
-        cw = self.imgFrame.width()
-        ch = self.imgFrame.height()
+        cw = self.img.parent().width()
+        ch = self.img.parent().height()
         factor = min(cw / pw, ch / ph)
         self.img.resize(QSize(pw * factor, ph * factor))
         iw = self.img.width()
         ih = self.img.height()
         self.img.move(QPoint((cw - iw) / 2, (ch - ih) / 2))
-        QtWidgets.QLabel.paintEvent(self.img, event)
+        QLabel.paintEvent(self.img, event)
 
-    def _updateFaces(self, event):
+    def _paintFaces(self, event):
         painter = QPainter()
         painter.begin(self.img)
         painter.setPen(QPen(Qt.red, self.LINE_WIDTH, Qt.SolidLine))
@@ -663,7 +792,14 @@ class ImageCtrlHandler(object):
             painter.drawRect(QRect(QPoint(left, top), QPoint(right, bottom)))
         painter.end()
 
-    def _mousePressOnImageCtrl(self, event):
+    def _updateRating(self, event):
+        rw = self.rating.width()
+        rh = self.rating.height()
+        cw = self.frameCtrl.width()
+        ch = self.frameCtrl.height()
+        self.rating.move(QPoint((cw - rw - 3), (ch - rh - 3)))
+
+    def _mousePressOnImgCtrl(self, event):
         event.accept()
         if not (event.modifiers() & Qt.ControlModifier):
             return
@@ -677,14 +813,14 @@ class ImageCtrlHandler(object):
                 self._faces.pop()
                 self.img.repaint()
 
-    def _mouseReleaseOnImageCtrl(self, event):
+    def _mouseReleaseOnImgCtrl(self, event):
         event.accept()
         if not (event.modifiers() & Qt.ControlModifier):
             return
         if event.button() == Qt.LeftButton:
             self._drawingFace = False
 
-    def _mouseMoveOnImageCtrl(self, event):
+    def _mouseMoveOnImgCtrl(self, event):
         event.accept()
         if not (event.modifiers() & Qt.ControlModifier):
             return

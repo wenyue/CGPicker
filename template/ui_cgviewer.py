@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'cgpicker.ui'
+# Form implementation generated from reading ui file 'cgviewer.ui'
 #
 # Created by: PyQt5 UI code generator 5.9.2
 #
@@ -20,10 +20,13 @@ class Ui_CGViewer(object):
         self.centralwidget.setSizePolicy(sizePolicy)
         self.centralwidget.setObjectName("centralwidget")
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralwidget)
+        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout.setSpacing(0)
         self.horizontalLayout.setObjectName("horizontalLayout")
         CGViewer.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(CGViewer)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 1172, 23))
+        self.menubar.setNativeMenuBar(False)
         self.menubar.setObjectName("menubar")
         CGViewer.setMenuBar(self.menubar)
 

@@ -1,12 +1,12 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
+import os
+
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtCore import Qt, QThread, QPoint, QSize
 from PyQt5.QtGui import QPixmap, QImage, QPainter
 from template.ui_face import Ui_Face
-
-import os
 
 
 class LoadFaceThread(QThread):
@@ -47,6 +47,9 @@ class Face(QWidget, Ui_Face):
         self._image = None
         self._mtime = None
         self._faces = None
+
+    def getImage(self):
+        return self._image
 
     def selected(self, isSelected):
         if isSelected:

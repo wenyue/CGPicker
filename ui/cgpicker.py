@@ -3,7 +3,8 @@
 
 import os
 
-from PyQt5.QtWidgets import QMainWindow, QFileDialog
+from PyQt5.QtGui import QKeySequence
+from PyQt5.QtWidgets import QMainWindow, QAction, QFileDialog
 from template.ui_cgpicker import Ui_CGPicker
 
 from ui.editor import Editor
@@ -20,13 +21,13 @@ class CGPicker(QMainWindow, Ui_CGPicker):
     def __init__(self, *args, **kwargs):
         super(CGPicker, self).__init__(*args, **kwargs)
         self.setupUi(self)
-        self.showMaximized()
+        self.setupFullScreenAction()
 
         self._database = Database(config.get('path', 'input'))
         sceneIdx = int(config.get('info', 'scene_index'))
 
         self.editor = Editor(self)
-        self.editor.refresh(self._database, sceneIdx)
+        self.editor.init(self._database, sceneIdx)
         self.horizontalLayout.addWidget(self.editor)
         self.editor.setVisible(True)
 
@@ -36,18 +37,36 @@ class CGPicker(QMainWindow, Ui_CGPicker):
 
         self.setupMainMenu()
 
-    def setupMainMenu(self):
-        self.menubar.setNativeMenuBar(False)
+    def setupFullScreenAction(self):
+        self.showMaximized()
+        self.menubar.setFixedHeight(23)
 
+        def toggleFullScreen():
+            if not self.isFullScreen():
+                self.showFullScreen()
+                self.menubar.setFixedHeight(0)
+            else:
+                self.showMaximized()
+                self.menubar.setFixedHeight(23)
+
+        toggleFullScreenAction = QAction(self)
+        toggleFullScreenAction.setShortcut(QKeySequence.FullScreen)
+        toggleFullScreenAction.setAutoRepeat(False)
+        toggleFullScreenAction.triggered.connect(toggleFullScreen)
+        self.addAction(toggleFullScreenAction)
+
+    def setupMainMenu(self):
         # File menu
         fileMenu = self.menubar.addMenu('&File')
 
         importAction = fileMenu.addAction('&Import')
         importAction.setShortcut('Ctrl+I')
+        importAction.setAutoRepeat(False)
         importAction.triggered.connect(self.pickCG)
 
         exportAction = fileMenu.addAction('&Export')
         exportAction.setShortcut('Ctrl+O')
+        exportAction.setAutoRepeat(False)
         exportAction.triggered.connect(self.collectPickToCG)
 
         fileMenu.addSeparator()
@@ -64,7 +83,6 @@ class CGPicker(QMainWindow, Ui_CGPicker):
         fileMenu.addSeparator()
 
         quitAction = fileMenu.addAction('&Quit')
-        quitAction.setShortcut('Esc')
         quitAction.triggered.connect(self.close)
 
         # Window menu
@@ -79,6 +97,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
 
         pickerConfigAction = windowMenu.addAction('Picker Config')
         pickerConfigAction.setShortcut('`')
+        pickerConfigAction.setAutoRepeat(False)
         pickerConfigAction.setCheckable(True)
         pickerConfigAction.setChecked(self.pickerConfig.isVisible())
         pickerConfigAction.triggered.connect(self.pickerConfig.toggle)
@@ -147,7 +166,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
 
         config.set('path', 'input', CGRoot)
         self._database.load(CGRoot)
-        self.editor.refresh(self._database, 0)
+        self.editor.refresh()
 
     def collectPickToCG(self):
         from tools.collector import collectPickToCG
@@ -174,7 +193,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
 
         config.set('path', 'input', newCGRoot)
         self._database.load(newCGRoot)
-        self.editor.refresh(self._database, 0)
+        self.editor.refresh()
 
     def formatImageNames(self):
         from tools.name_formater import formatImageNames
@@ -208,5 +227,5 @@ class CGPicker(QMainWindow, Ui_CGPicker):
 
     def closeEvent(self, event):
         self._database.flush()
-        sceneIdx = self.editor.getSceneIdx()
+        sceneIdx = self.editor.curSceneIdx
         config.set('info', 'scene_index', str(sceneIdx))
