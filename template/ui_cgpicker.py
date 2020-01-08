@@ -20,10 +20,13 @@ class Ui_CGPicker(object):
         self.centralwidget.setSizePolicy(sizePolicy)
         self.centralwidget.setObjectName("centralwidget")
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralwidget)
+        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout.setSpacing(0)
         self.horizontalLayout.setObjectName("horizontalLayout")
         CGPicker.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(CGPicker)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 1172, 23))
+        self.menubar.setNativeMenuBar(False)
         self.menubar.setObjectName("menubar")
         CGPicker.setMenuBar(self.menubar)
 

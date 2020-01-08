@@ -21,10 +21,10 @@ class Action(object):
         return self._fnames
 
     # Only called by Scene class
-    def renameImage(self, imagePath, toName):
-        index = self.indexImage(imagePath)
-        if index is not None:
-            self._fnames[index] = toName
+    def renameImage(self, namesMap):
+        for idx, fname in enumerate(self._fnames):
+            if fname in namesMap:
+                self._fnames[idx] = namesMap[fname]
 
     def indexImage(self, imagePath):
         fname = os.path.basename(imagePath)
@@ -138,20 +138,23 @@ class Scene(object):
         }
 
     def normalizeImages(self, imageIndex):
+        namesMap = {}
         for action in self._actions:
             for idx in range(action.getImageNum()):
-                image = action.getImage(idx)
-                _, extend = os.path.splitext(image)
+                fname = action.getFname(idx)
+                _, extend = os.path.splitext(fname)
                 toName = '%04d%s' % (imageIndex, extend)
                 imageIndex += 1
-                if (os.path.basename(image) == toName):
+                if (fname == toName):
                     continue
-                action.renameImage(image, toName)
-                self._pick.renameImage(image, toName)
-                self._love.renameImage(image, toName)
+                namesMap[fname] = toName
                 toImage = os.path.join(self._CGRoot, macro.TMP_NAME, toName)
                 os.makedirs(os.path.join(self._CGRoot, macro.TMP_NAME), exist_ok=True)
-                shutil.move(image, toImage)
+                shutil.move(action.getImage(idx), toImage)
+        for action in self._actions:
+            action.renameImage(namesMap)
+        self._pick.renameImage(namesMap)
+        self._love.renameImage(namesMap)
         self._updateSceneFnames()
         return imageIndex
 
@@ -172,10 +175,10 @@ class Scene(object):
         self._love.sort()
 
     def getDatetime(self):
-        self._datetime
+        return self._datetime
 
-    def updateDatetime(self):
-        self._datetime = datetime.now()
+    def setDatetime(self, datetime):
+        self._datetime = datetime
 
     def getImages(self):
         return [

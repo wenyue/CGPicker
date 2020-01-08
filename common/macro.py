@@ -5,6 +5,7 @@ DATABASE_FILE = 'database.json'
 
 TMP_NAME = 'tmp'
 BACKUP_NAME = 'backup'
+RATING_MAP = (u'', u'⭐', u'⭐⭐', u'⭐⭐⭐', u'❤')
 
 STAND_WIDTH = 1920
 STAND_HEIGHT = 1080

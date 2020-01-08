@@ -14,10 +14,14 @@ class RandomPool(object):
     def __init__(self, root):
         self._root = root
         self._datetime = datetime.now()
-        self._didx = 0
-        self._sidx = 0
-        self._lidx = 0
+        self._dirties = set()
+        self._flushes = set()
+        self._saveCounter = 0
         self.load()
+
+        self._randomDatabaseIdx()
+        self._randomSceneIdx()
+        self.getScene().setDatetime(self._datetime)
 
     def load(self):
         self._databases = []
@@ -31,8 +35,44 @@ class RandomPool(object):
                 self._databases.append(database)
                 self._weights.append(weight)
 
-    def getNextImage(self):
+    def flush(self):
+        self.save()
+        for database in self._flushes:
+            database.flush()
+        self._flushes.clear()
+
+    def save(self):
+        for database in self._dirties:
+            database.save()
+        self._dirties.clear()
+
+    def setDirty(self, databaseIdx, needToFlush=False):
+        database = self._databases[databaseIdx]
+        weight = self._calculateCumulativeSceneWeights(database)[-1]
+        self._weights[databaseIdx] = weight
+
+        self._dirties.add(database)
+        if needToFlush:
+            self._flushes.add(database)
+        self._saveCounter += 1
+        if self._saveCounter % 100 == 0:
+            self.save()
+
+    def randomScene(self):
         raise NotImplementedError
+
+    def getDatabase(self):
+        return self._databases[self._didx]
+
+    def getDatabaseIdx(self):
+        return self._didx
+
+    def getScene(self):
+        database = self.getDatabase()
+        return database.getScene(self._sidx)
+
+    def getSceneIdx(self):
+        return self._sidx
 
     def _calculateCumulativeSceneWeights(self, database):
         sceneWeights = []
@@ -48,28 +88,32 @@ class RandomPool(object):
         raise NotImplementedError
 
     def _randomDatabaseIdx(self):
-        self._didx = random.choices(range(len(self._databases)), weights=self._weights)
+        self._didx = random.choices(range(len(self._databases)), weights=self._weights)[0]
 
     def _randomSceneIdx(self):
-        database = self._databases[self._didx]
-        self._sidx = random.cloises(
+        database = self.getDatabase()
+        self._sidx = random.choices(
             range(database.getSceneNum()),
-            cum_weight=self._calculateCumulativeSceneWeights(database)
-        )
+            cum_weights=self._calculateCumulativeSceneWeights(database)
+        )[0]
 
 
 class RatingRandomPool(RandomPool):
-    RATING_WEIGHTS = [0, 1, 1, 1, 1]
-    DAY_WEIGHT = 0.01
+    RATING_WEIGHTS = [0, 1, 2, 3, 5]
+    DAY_WEIGHT = 1.1
+    DAY_MAX_WEIGHT = 10
 
     def __init__(self, root):
         super(RatingRandomPool, self).__init__(root)
 
-    def getNextImage(self):
-        pass
+    def randomScene(self):
+        self._randomDatabaseIdx()
+        self._randomSceneIdx()
+        self.getScene().setDatetime(self._datetime)
+        self.setDirty(self.getDatabaseIdx())
 
     def _calculateSceneWeight(self, scene):
         ratingWeight = self.RATING_WEIGHTS[scene.getRating()]
         days = (self._datetime - scene.getDatetime()).days
-        timeWeight = min(days * self.DAY_WEIGHT, 1)
+        timeWeight = min(days * self.DAY_WEIGHT, self.DAY_MAX_WEIGHT)
         return ratingWeight + timeWeight
