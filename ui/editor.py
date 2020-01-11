@@ -626,7 +626,7 @@ class Editor(QWidget, Ui_Editor):
         if self.isInvalid():
             self.faceFrame.setVisible(False)
             return
-        self.faceFrame.setVisible(True)
+        self.faceContainer.setVisible(True)
 
         for ctrl in self._faceCtrls:
             ctrl.setVisible(False)
