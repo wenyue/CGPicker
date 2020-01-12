@@ -30,8 +30,7 @@ def debugData(data):
 
 def loadImage(filename):
     img = Image.open(filename)
-    w, h = int(img.width * macro.NORMALIZE_SCALE), int(
-        img.height * macro.NORMALIZE_SCALE)
+    w, h = int(img.width * macro.NORMALIZE_SCALE), int(img.height * macro.NORMALIZE_SCALE)
     img = img.resize((w, h), Image.BILINEAR)
     img = img.convert('L')
     img.filename = filename
@@ -46,8 +45,7 @@ def calSimilarity(li, ri):
     w, h = li.size
     lp = li.load()
     rp = ri.load()
-    samePixelNum = sum(1 if isSamePixel(lp, rp, i, j) else 0
-                       for i in range(w) for j in range(h))
+    samePixelNum = sum(1 if isSamePixel(lp, rp, i, j) else 0 for i in range(w) for j in range(h))
     return samePixelNum / (w * h)
 
 
@@ -81,8 +79,7 @@ def calHits(scene):
     if (len(scene) == 1):
         return hits
     reduce(lambda li, ri: calHit(hits, li, ri) or ri, scene)
-    hits = [[pow(value, macro.FACE_REFORCE_FACTOR) for value in col]
-            for col in hits]
+    hits = [[pow(value, macro.FACE_REFORCE_FACTOR) for value in col] for col in hits]
     totalValue = sum(map(sum, hits))
     if totalValue != 0:
         hits = [[value / totalValue for value in col] for col in hits]
@@ -190,10 +187,9 @@ def calFaceRegions(scene, faceNum=1, debug=False):  # noqa
                 faceSize = (radius - bestRadius) / (maxRadius - bestRadius)
             else:
                 faceSize = (bestRadius - radius) / (bestRadius - minRadius)
-            factor = faceSize * faceSizeFactor + \
-                    shape * macro.FACE_SHAPE_FACTOR + \
-                    (x / w) * macro.FACE_LEFT_FACTOR + \
-                    (y / h) * macro.FACE_TOP_FACTOR + 1
+            factor = faceSize * faceSizeFactor + shape * macro.FACE_SHAPE_FACTOR + (
+                x / w
+            ) * macro.FACE_LEFT_FACTOR + (y / h) * macro.FACE_TOP_FACTOR + 1
             value = calHitValue(totalHits, x, y, radius) / factor
             center = max(center, (value, region))
 
@@ -246,13 +242,9 @@ def generatePicks(actions):
     picks = []
     for action in actions:
         if picks:
-            imgs = random.sample(action, min(
-                len(action), macro.PICK_SAMPLE_NUM))
+            imgs = random.sample(action, min(len(action), macro.PICK_SAMPLE_NUM))
             cpicks = picks[-macro.PICK_COMPARE_NUM:]
-            values = [
-                sum(calSimilarity(img, pick) for pick in cpicks)
-                for img in imgs
-            ]
+            values = [sum(calSimilarity(img, pick) for pick in cpicks) for img in imgs]
             _, pick = min(zip(values, imgs), key=lambda x: x[0])
         else:
             pick = random.choice(action) if random.randint(0, 1) else action[0]
@@ -261,23 +253,22 @@ def generatePicks(actions):
 
 
 def generateSceneProto(faces, actions, picks):
-    actionsProto = [[os.path.basename(img.filename) for img in action]
-                    for action in actions]
-    pickProto = [os.path.basename(img.filename) for img in picks]
+    actionsProto = []
+    for action, pick in zip(actions, picks):
+        actionsProto.append({
+            'images': [os.path.basename(img.filename) for img in action],
+            'pick': os.path.basename(pick.filename),
+            'love': False,
+        })
     w, h = actions[0][0].size
     facesProto = []
     for face in faces:
         left, right, top, bottom = convertRegion(face, w, h)
-        facesProto.append([
-            int(val / macro.NORMALIZE_SCALE)
-            for val in (left, top, right, bottom)
-        ])
+        facesProto.append([int(val / macro.NORMALIZE_SCALE) for val in (left, top, right, bottom)])
     return {
         'rating': 0,
         'timestamp': 0,
         'actions': actionsProto,
-        'pick': pickProto,
-        'love': [],
         'faces': facesProto,
     }
 
@@ -299,8 +290,7 @@ def pickCG(path):
     proto = []
     for sid, images in enumerate(scenes):
         faces = calFaceRegions(images)
-        actions = utils.groupby(lambda li, ri: isSameAction(li, ri, faces),
-                                images)
+        actions = utils.groupby(lambda li, ri: isSameAction(li, ri, faces), images)
         picks = generatePicks(actions)
         proto.append(generateSceneProto(faces, actions, picks))
         yield 'picking: %d/%d' % (sid + 1, len(scenes))

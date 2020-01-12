@@ -85,7 +85,7 @@
      <bool>true</bool>
     </property>
    </widget>
-   <widget class="QLabel" name="starNum">
+   <widget class="QLabel" name="number">
     <property name="geometry">
      <rect>
       <x>0</x>
@@ -96,12 +96,14 @@
     </property>
     <property name="font">
      <font>
-      <family>Algerian</family>
-      <pointsize>12</pointsize>
+      <family>Comic Sans MS</family>
+      <pointsize>20</pointsize>
+      <weight>50</weight>
+      <bold>false</bold>
      </font>
     </property>
     <property name="text">
-     <string/>
+     <string>20</string>
     </property>
     <property name="textFormat">
      <enum>Qt::AutoText</enum>
@@ -110,6 +112,43 @@
      <set>Qt::AlignCenter</set>
     </property>
    </widget>
+   <widget class="QLabel" name="outline">
+    <property name="enabled">
+     <bool>true</bool>
+    </property>
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>0</y>
+      <width>50</width>
+      <height>50</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Comic Sans MS</family>
+      <pointsize>20</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">color: white</string>
+    </property>
+    <property name="text">
+     <string>20</string>
+    </property>
+    <property name="textFormat">
+     <enum>Qt::AutoText</enum>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <zorder>star</zorder>
+   <zorder>circle</zorder>
+   <zorder>outline</zorder>
+   <zorder>number</zorder>
   </widget>
  </widget>
  <resources/>

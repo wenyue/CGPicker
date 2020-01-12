@@ -33,9 +33,8 @@ class Viewer(QWidget, Ui_Viewer):
 
         self._history.append(self.SceneInfo(self._randomPool))
         self._hidx = 0
-        self._lidx = 0
 
-        self._update()
+        self.refresh()
 
     def refresh(self):
         self._lidx = 0
@@ -61,11 +60,11 @@ class Viewer(QWidget, Ui_Viewer):
         self._viewMenu = viewMenu
 
         prevImageAction = viewMenu.addAction('Previous')
-        prevImageAction.setShortcut('Left')
+        prevImageAction.setShortcuts(['Left', 'A'])
         prevImageAction.triggered.connect(self.showPrevImage)
 
         nextImageAction = viewMenu.addAction('Next')
-        nextImageAction.setShortcut('Right')
+        nextImageAction.setShortcuts(['Right', 'D'])
         nextImageAction.triggered.connect(self.showNextImage)
 
         # Edit menu
@@ -79,7 +78,7 @@ class Viewer(QWidget, Ui_Viewer):
 
     def setupRatingMenu(self, editMenu):
         ratingGroup = QActionGroup(editMenu)
-        for rating in range(1, 5):
+        for rating in range(0, 5):
             ratingAction = editMenu.addAction('Rating %s' % macro.RATING_MAP[rating])
             ratingAction.setShortcut('%d' % rating)
             ratingAction.setAutoRepeat(False)
@@ -88,7 +87,7 @@ class Viewer(QWidget, Ui_Viewer):
             ratingGroup.addAction(ratingAction)
 
             def update(ratingAction=ratingAction, rating=rating):
-                checked = self.curScene.getRawRating() == rating if self.curScene else False
+                checked = self.curScene.getRating() == rating if self.curScene else False
                 ratingAction.setChecked(checked)
 
             editMenu.aboutToShow.connect(update)
@@ -110,12 +109,8 @@ class Viewer(QWidget, Ui_Viewer):
         return self._history[self._hidx].sceneIdx
 
     @property
-    def curLove(self):
-        return self.curScene.getLove()
-
-    @property
     def curImage(self):
-        return self.curLove.getImage(self._lidx)
+        return self.curScene.getLoveAction(self._lidx).getPick()
 
     def isInvalid(self):
         return self.curScene != self.curDatabase.getScene(self.curSceneIdx)
@@ -126,14 +121,14 @@ class Viewer(QWidget, Ui_Viewer):
         else:
             if self._hidx > 0:
                 self._hidx -= 1
-                self._lidx = self.curLove.getImageNum() - 1
+                self._lidx = self.curScene.getLoveActionNum() - 1
             else:
                 return
         self._update()
 
     def showNextImage(self):
         self._lidx += 1
-        if self._lidx == self.curLove.getImageNum():
+        if self._lidx == self.curScene.getLoveActionNum():
             self._lidx = 0
             self._hidx += 1
             if self._hidx == len(self._history):

@@ -126,8 +126,12 @@ class CGPicker(QMainWindow, Ui_CGPicker):
             self.createLoading(lambda: convertImages(CGRoot))
             self.createLoading(lambda: pickCG(CGRoot))
 
-            picks = os.listdir(os.path.join(os.path.dirname(CGRoot), 'Pick'))
-            loves = os.listdir(os.path.join(os.path.dirname(CGRoot), 'Love'))
+            pickPath = os.path.join(os.path.dirname(CGRoot), 'Pick')
+            if os.path.exists(pickPath):
+                picks = os.listdir(pickPath)
+            lovePath = os.path.join(os.path.dirname(CGRoot), 'Love')
+            if os.path.exists(lovePath):
+                loves = os.listdir(lovePath)
             rating = 1
             dirname = os.path.dirname(CGRoot)
             if dirname.endswith(u'[☆]'):
@@ -142,17 +146,14 @@ class CGPicker(QMainWindow, Ui_CGPicker):
             with open(os.path.join(CGRoot, macro.DATABASE_FILE), 'r') as f:
                 proto = json.load(f)
             for sceneProto in proto:
-                pickProto = []
-                loveProto = []
                 for action in sceneProto['actions']:
-                    for image in action:
-                        if image in picks:
-                            pickProto.append(image)
+                    for image in action['images']:
                         if image in loves:
-                            loveProto.append(image)
-                sceneProto['pick'] = pickProto
-                sceneProto['love'] = loveProto
-                sceneProto['rating'] = rating if loveProto else 0
+                            action['love'] = True
+                            action['pick'] = image
+                        if not action['love'] and image in picks:
+                            action['pick'] = image
+                sceneProto['rating'] = rating
             with open(os.path.join(CGRoot, macro.DATABASE_FILE), 'w') as f:
                 json.dump(proto, f, indent=2, sort_keys=True)
         elif not os.path.isfile(os.path.join(CGRoot, macro.DATABASE_FILE)):
@@ -193,7 +194,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
 
         config.set('path', 'input', newCGRoot)
         self._database.load(newCGRoot)
-        self.editor.refresh()
+        self.editor.refresh(self.editor.getSceneIdx())
 
     def formatImageNames(self):
         from tools.name_formater import formatImageNames

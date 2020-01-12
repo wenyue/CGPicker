@@ -13,76 +13,73 @@ from common import utils
 
 class Action(object):
 
-    def __init__(self, CGRoot, actionProto, sceneFnames):
+    def __init__(self, CGRoot, actionProto):
         self._CGRoot = CGRoot
-        self._fnames = actionProto.copy()
-        self._sceneFnames = sceneFnames
+        self._images = actionProto['images'].copy()
+        self._pick = actionProto['pick']
+        self._love = actionProto['love']
 
     def serialize(self):
-        return self._fnames
+        return {
+            'images': self._images,
+            'pick': self._pick,
+            'love': self._love,
+        }
 
-    # Only called by Scene class
-    def renameImage(self, namesMap):
-        for idx, fname in enumerate(self._fnames):
-            if fname in namesMap:
-                self._fnames[idx] = namesMap[fname]
+    def getPick(self):
+        return os.path.join(self._CGRoot, self._pick)
+
+    def setPick(self, imagePath):
+        self._pick = os.path.basename(imagePath)
+
+    def isLove(self):
+        return self._love
+
+    def setLove(self, isLove):
+        self._love = isLove
 
     def indexImage(self, imagePath):
-        fname = os.path.basename(imagePath)
+        image = os.path.basename(imagePath)
         try:
-            index = self._fnames.index(fname)
+            index = self._images.index(image)
         except ValueError:
             index = None
         return index
 
     def hasImage(self, imagePath):
-        fname = os.path.basename(imagePath)
-        return fname in self._fnames
+        image = os.path.basename(imagePath)
+        return image in self._images
+
+    def getImages(self):
+        return [self.getImage(index) for index in range(len(self._images))]
 
     def getImage(self, index):
         return os.path.join(self._CGRoot,
-                            self._fnames[index]) if index < len(self._fnames) else None
+                            self._images[index]) if index < len(self._images) else None
 
-    def getFname(self, index):
-        return self._fnames[index] if index < len(self._fnames) else None
+    def getImageNames(self):
+        return self._images
+
+    def getImageName(self, index):
+        return self._images[index]
 
     def getImageNum(self):
-        return len(self._fnames)
+        return len(self._images)
 
     def normalizeImageIdx(self, index, loop=False):
         if loop:
-            return index % max(len(self._fnames), 1)
+            return index % max(len(self._images), 1)
         else:
-            return min(max(index, 0), max(len(self._fnames) - 1, 0))
+            return min(max(index, 0), max(len(self._images) - 1, 0))
 
-
-class Pick(Action):
-
-    def clear(self):
-        self._fnames.clear()
-
-    def sort(self):
-
-        def bySceneIndex(fname):
-            return self._sceneFnames.index(fname)
-
-        self._fnames.sort(key=bySceneIndex)
-
-    def addImage(self, imagePath):
-        if self.hasImage(imagePath):
-            return
-        fname = os.path.basename(imagePath)
-        self._fnames.append(fname)
-        self.sort()
-
-    def delImage(self, imagePath):
-        if not self.hasImage(imagePath):
-            return
-        fname = os.path.basename(imagePath)
-        self._fnames.remove(fname)
-
-    def merge(self, pick):
-        self._fnames += pick._fnames
+    def _renameImage(self, namesMap):
+        for idx, image in enumerate(self._images):
+            if image in namesMap:
+                self._images[idx] = namesMap[image]
+        if self._pick in namesMap:
+            self._pick = namesMap[self._pick]
+        if self._love in namesMap:
+            self._love = namesMap[self._love]
 
 
 class Face(object):
@@ -109,87 +106,126 @@ class Scene(object):
 
     def __init__(self, CGRoot, sceneProto):
         self._CGRoot = CGRoot
-        self._sceneFnames = []
         self.load(sceneProto)
-
-    def _updateSceneFnames(self):
-        self._sceneFnames.clear()
-        for action in self._actions:
-            for idx in range(action.getImageNum()):
-                self._sceneFnames.append(action.getFname(idx))
 
     def load(self, sceneProto):
         self._rating = sceneProto['rating']
-        self._actions = [
-            Action(self._CGRoot, actionProto, self._sceneFnames)
-            for actionProto in sceneProto['actions']
-        ]
-        self._pick = Pick(self._CGRoot, sceneProto['pick'], self._sceneFnames)
-        self._love = Pick(self._CGRoot, sceneProto['love'], self._sceneFnames)
+        # rating = -1 indicates that rating is not set in this work life
+        if self._rating == 0:
+            self._rating = -1
+        self._actions = [Action(self._CGRoot, actionProto) for actionProto in sceneProto['actions']]
         self._faces = [Face(faceProto) for faceProto in sceneProto['faces']]
         self._datetime = datetime.utcfromtimestamp(sceneProto['timestamp'])
-        self._updateSceneFnames()
 
     def serialize(self):
-        rating = self.getRating()
         return {
-            'rating': rating,
+            'rating': self.getRating(),
             'actions': [action.serialize() for action in self._actions],
-            'pick': self._pick.serialize(),
-            'love': self._love.serialize() if rating != 0 else [],
             'faces': [face.serialize() for face in self._faces],
             'timestamp': self._datetime.replace(tzinfo=timezone.utc).timestamp(),
         }
-
-    def normalizeImages(self, imageIndex):
-        namesMap = {}
-        for action in self._actions:
-            for idx in range(action.getImageNum()):
-                fname = action.getFname(idx)
-                _, extend = os.path.splitext(fname)
-                toName = '%04d%s' % (imageIndex, extend)
-                imageIndex += 1
-                if (fname == toName):
-                    continue
-                namesMap[fname] = toName
-                toImage = os.path.join(self._CGRoot, macro.TMP_NAME, toName)
-                os.makedirs(os.path.join(self._CGRoot, macro.TMP_NAME), exist_ok=True)
-                shutil.move(action.getImage(idx), toImage)
-        for action in self._actions:
-            action.renameImage(namesMap)
-        self._pick.renameImage(namesMap)
-        self._love.renameImage(namesMap)
-        self._updateSceneFnames()
-        return imageIndex
 
     def moveActionForward(self, action):
         index = self.normalizeActionIdx(self._actions.index(action) - 1)
         self._actions.remove(action)
         self._actions.insert(index, action)
-        self._updateSceneFnames()
-        self._pick.sort()
-        self._love.sort()
 
     def moveActionBackward(self, action):
         index = self.normalizeActionIdx(self._actions.index(action) + 1)
         self._actions.remove(action)
         self._actions.insert(index, action)
-        self._updateSceneFnames()
-        self._pick.sort()
-        self._love.sort()
 
     def delAction(self, action):
         if len(self._actions) == 1:
             return False
         self._actions.remove(action)
-        self._updateSceneFnames()
-        for idx in range(action.getImageNum()):
-            image = action.getImage(idx)
-            self._pick.delImage(image)
-            self._love.delImage(image)
         return True
 
-    def split(self, action):
+    def getActions(self):
+        return self._actions
+
+    def getAction(self, index):
+        return self._actions[index] if index < len(self._actions) else None
+
+    def getActionNum(self):
+        return len(self._actions)
+
+    def normalizeActionIdx(self, index, loop=False):
+        if loop:
+            return index % max(len(self._actions), 1)
+        else:
+            return min(max(index, 0), max(len(self._actions) - 1, 0))
+
+    def getLoveActions(self):
+        loveActions = []
+        for action in self._actions:
+            if action.isLove():
+                loveActions.append(action)
+        return loveActions
+
+    def getLoveAction(self, index):
+        for action in self._actions:
+            if not action.isLove():
+                continue
+            if index == 0:
+                return action
+            else:
+                index -= 1
+        return None
+
+    def getLoveActionNum(self):
+        counter = 0
+        for action in self._actions:
+            if action.isLove():
+                counter += 1
+        return counter
+
+    def normalizeLoveActionIdx(self, index, loop=False):
+        loveNum = self.getLoveActionNum()
+        if loop:
+            return index % max(loveNum, 1)
+        else:
+            return min(max(index, 0), max(loveNum - 1, 0))
+
+    def getFaces(self):
+        return self._faces
+
+    def getDatetime(self):
+        return self._datetime
+
+    def setDatetime(self, datetime):
+        self._datetime = datetime
+
+    def getRating(self):
+        return max(0, self._rating) if self.getLoveActionNum() != 0 else 0
+
+    def getRawRating(self):
+        return self._rating
+
+    def setRating(self, rating):
+        if rating >= 0:
+            self._rating = rating
+
+    # Only called by database class
+    def _normalizeImages(self, imageIndex):
+        namesMap = {}
+        for action in self._actions:
+            for idx in range(action.getImageNum()):
+                imageName = action.getImageName(idx)
+                _, extend = os.path.splitext(imageName)
+                toName = '%04d%s' % (imageIndex, extend)
+                imageIndex += 1
+                if (imageName == toName):
+                    continue
+                namesMap[imageName] = toName
+                toImage = os.path.join(self._CGRoot, macro.TMP_NAME, toName)
+                os.makedirs(os.path.join(self._CGRoot, macro.TMP_NAME), exist_ok=True)
+                shutil.move(action.getImage(idx), toImage)
+        for action in self._actions:
+            action._renameImage(namesMap)
+        return imageIndex
+
+    def _split(self, action):
         index = self._actions.index(action)
         if index == 0:
             return None
@@ -200,62 +236,8 @@ class Scene(object):
             new_scene.delAction(action)
         return new_scene
 
-    def merge(self, scene):
+    def _merge(self, scene):
         self._actions += scene._actions
-        self._updateSceneFnames()
-        self._pick.merge(scene._pick)
-        self._love.merge(scene._love)
-
-    def getDatetime(self):
-        return self._datetime
-
-    def setDatetime(self, datetime):
-        self._datetime = datetime
-
-    def getImages(self):
-        return [
-            action.getImage(idx) for action in self._actions for idx in range(action.getImageNum())
-        ]
-
-    def getFnames(self):
-        return self._sceneFnames
-
-    def getAction(self, index):
-        return self._actions[index] if index < len(self._actions) else None
-
-    def getActionNum(self):
-        return len(self._actions)
-
-    def getPick(self):
-        return self._pick
-
-    def getLove(self):
-        return self._love
-
-    def getFaces(self):
-        return self._faces
-
-    def getRating(self):
-        return 0 if self._love.getImageNum() == 0 else self._rating
-
-    def getRawRating(self):
-        return self._rating
-
-    def setRating(self, rating):
-        self._rating = rating
-
-    def indexImage(self, imagePath):
-        aidx, iidx = next(((aidx, action.indexImage(imagePath))
-                           for aidx, action in enumerate(self._actions)
-                           if action.indexImage(imagePath) is not None),
-                          (None, None))
-        return aidx, iidx
-
-    def normalizeActionIdx(self, index, loop=False):
-        if loop:
-            return index % max(len(self._actions), 1)
-        else:
-            return min(max(index, 0), max(len(self._actions) - 1, 0))
 
 
 class Database(object):
@@ -290,7 +272,8 @@ class Database(object):
         # Get image set
         fnames = []
         for scene in self._scenes:
-            fnames += scene.getFnames()
+            for action in scene.getActions():
+                fnames += action.getImageNames()
         fnames = set(fnames)
         # Delete images not in image set
         for fname in os.listdir(self._CGRoot):
@@ -300,7 +283,7 @@ class Database(object):
         # Rename images
         imageIndex = 0
         for scene in self._scenes:
-            imageIndex = scene.normalizeImages(imageIndex)
+            imageIndex = scene._normalizeImages(imageIndex)
         tpath = os.path.join(self._CGRoot, macro.TMP_NAME)
         if os.path.exists(tpath):
             for fname in os.listdir(tpath):
@@ -326,7 +309,7 @@ class Database(object):
         self._scenes.remove(scene)
 
     def splitScene(self, scene, action):
-        new_scene = scene.split(action)
+        new_scene = scene._split(action)
         if new_scene is None:
             return False
         index = self._scenes.index(scene) + 1
@@ -337,7 +320,7 @@ class Database(object):
         index = self._scenes.index(scene) - 1
         if index < 0:
             return False
-        self._scenes[index].merge(scene)
+        self._scenes[index]._merge(scene)
         self._scenes.remove(scene)
         return True
 

@@ -14,9 +14,8 @@ from common import macro
 
 
 class ViewMode(Enum):
-    SELECT = 1
-    PICK = 2
-    LOVE = 3
+    PICK = 1
+    LOVE = 2
 
 
 class Editor(QWidget, Ui_Editor):
@@ -40,29 +39,17 @@ class Editor(QWidget, Ui_Editor):
     def init(self, database, sceneIdx):
         self._database = database
 
-        self._viewMode = ViewMode.PICK
-        self._lastViewMode = ViewMode.PICK
-        self._lockViewMode = ViewMode.PICK
         self._globalRating = 2
+
+        self.refresh(sceneIdx)
+
+    def refresh(self, sceneIdx=0):
+        self._viewMode = ViewMode.PICK
+        self._lockViewMode = ViewMode.PICK
+        self._selectingMode = False
         self._saveCounter = 0
 
         self._sidx = self._database.normalizeSceneIdx(sceneIdx)
-        self._aidx = 0
-        self._iidx = 0
-        self._pidx = 0
-        self._lidx = 0
-
-        self._update()
-
-    def refresh(self):
-        self._viewMode = ViewMode.PICK
-        self._lastViewMode = ViewMode.PICK
-        self._lockViewMode = ViewMode.PICK
-        self._globalRating = 2
-        self._saveCounter = 0
-
-        self._sidx = 0
-        self._aidx = 0
         self._iidx = 0
         self._pidx = 0
         self._lidx = 0
@@ -89,51 +76,6 @@ class Editor(QWidget, Ui_Editor):
             if facesProto:
                 self.repickSceneWithFaces(facesProto)
                 event.accept()
-
-    @property
-    def curScene(self):
-        return self._database and self._database.getScene(self._sidx)
-
-    @property
-    def curSceneIdx(self):
-        return self._sidx
-
-    @property
-    def curAction(self):
-        scene = self.curScene
-        if not scene:
-            return
-        if self._viewMode == ViewMode.SELECT:
-            return scene.getAction(self._aidx)
-        elif self._viewMode == ViewMode.PICK:
-            return scene.getPick()
-        elif self._viewMode == ViewMode.LOVE:
-            return scene.getLove()
-
-    @property
-    def curImage(self):
-        action = self.curAction
-        if not action:
-            return
-        if self._viewMode == ViewMode.SELECT:
-            return action.getImage(self._iidx)
-        elif self._viewMode == ViewMode.PICK:
-            return action.getImage(self._pidx)
-        elif self._viewMode == ViewMode.LOVE:
-            return action.getImage(self._lidx)
-
-    @property
-    def curPick(self):
-        scene = self.curScene
-        return scene.getPick() if scene else None
-
-    @property
-    def curLove(self):
-        scene = self.curScene
-        return scene.getLove() if scene else None
-
-    def isInvalid(self):
-        return self.curAction is None
 
     def setupMainMenu(self, menubar):
         # View menu
@@ -165,123 +107,100 @@ class Editor(QWidget, Ui_Editor):
         self._setMenuEnabled(self.isVisible())
 
     def setupViewModeMenu(self, viewMenu):
-        normalViewAction = viewMenu.addAction('Normal View')
-        normalViewAction.setShortcut('Q')
-        normalViewAction.setAutoRepeat(False)
-        normalViewAction.setCheckable(True)
-        normalViewAction.triggered.connect(lambda: self.setViewMode(ViewMode.SELECT))
-
         pickViewAction = viewMenu.addAction('Pick View')
-        pickViewAction.setShortcut('W')
-        pickViewAction.setAutoRepeat(False)
         pickViewAction.setCheckable(True)
         pickViewAction.triggered.connect(lambda: self.setViewMode(ViewMode.PICK))
 
         loveViewAction = viewMenu.addAction('Love View')
-        loveViewAction.setShortcut('E')
-        loveViewAction.setAutoRepeat(False)
         loveViewAction.setCheckable(True)
         loveViewAction.triggered.connect(lambda: self.setViewMode(ViewMode.LOVE))
 
         viewModeGroup = QActionGroup(viewMenu)
-        viewModeGroup.addAction(normalViewAction)
         viewModeGroup.addAction(pickViewAction)
         viewModeGroup.addAction(loveViewAction)
 
         def update():
-            if self._viewMode == ViewMode.SELECT:
-                normalViewAction.setChecked(True)
-            elif self._viewMode == ViewMode.PICK:
+            if self._viewMode == ViewMode.PICK:
                 pickViewAction.setChecked(True)
             elif self._viewMode == ViewMode.LOVE:
                 loveViewAction.setChecked(True)
+            else:
+                print('Invalid view mode')
 
         viewMenu.aboutToShow.connect(update)
 
-    def setupLockViewModeMenu(self, viewMenu):
-        lockNormalViewAction = viewMenu.addAction('Lock Normal View')
-        lockNormalViewAction.setShortcut('Ctrl+Q')
-        lockNormalViewAction.setAutoRepeat(False)
-        lockNormalViewAction.setCheckable(True)
-        lockNormalViewAction.triggered.connect(lambda: self.setLockViewMode(ViewMode.SELECT))
+        swtichViewAction = viewMenu.addAction('Switch View')
+        swtichViewAction.setShortcut('Q')
+        swtichViewAction.setAutoRepeat(False)
+        swtichViewAction.triggered.connect(self.switchViewMode)
 
+    def setupLockViewModeMenu(self, viewMenu):
         lockPickViewAction = viewMenu.addAction('Lock Pick View')
-        lockPickViewAction.setShortcut('Ctrl+W')
-        lockPickViewAction.setAutoRepeat(False)
         lockPickViewAction.setCheckable(True)
         lockPickViewAction.triggered.connect(lambda: self.setLockViewMode(ViewMode.PICK))
 
         lockLoveViewAction = viewMenu.addAction('Lock Love View')
-        lockLoveViewAction.setShortcut('Ctrl+E')
-        lockLoveViewAction.setAutoRepeat(False)
         lockLoveViewAction.setCheckable(True)
         lockLoveViewAction.triggered.connect(lambda: self.setLockViewMode(ViewMode.LOVE))
 
         lockViewModeGroup = QActionGroup(viewMenu)
-        lockViewModeGroup.addAction(lockNormalViewAction)
         lockViewModeGroup.addAction(lockPickViewAction)
         lockViewModeGroup.addAction(lockLoveViewAction)
 
         def update():
-            if self._lockViewMode == ViewMode.SELECT:
-                lockNormalViewAction.setChecked(True)
-            elif self._lockViewMode == ViewMode.PICK:
+            if self._lockViewMode == ViewMode.PICK:
                 lockPickViewAction.setChecked(True)
             elif self._lockViewMode == ViewMode.LOVE:
                 lockLoveViewAction.setChecked(True)
+            else:
+                print('Invalid view mode')
 
         viewMenu.aboutToShow.connect(update)
 
+        swtichLockViewAction = viewMenu.addAction('Switch Lock View')
+        swtichLockViewAction.setShortcut('Ctrl+Q')
+        swtichLockViewAction.setAutoRepeat(False)
+        swtichLockViewAction.triggered.connect(self.switchLockViewMode)
+
     def setupNavigatorMenu(self, viewMenu):
-        selectImageAction = viewMenu.addAction('&Select Image')
-        selectImageAction.setShortcut('Space')
-        selectImageAction.setAutoRepeat(False)
-        selectImageAction.triggered.connect(self.selectImage)
-
-        viewMenu.addSeparator()
-
-        nextImageAction = viewMenu.addAction('Next Image')
-        nextImageAction.setShortcut('Right')
-        nextImageAction.triggered.connect(self.showNextImage)
-
         prevImageAction = viewMenu.addAction('Prev Image')
-        prevImageAction.setShortcut('Left')
+        prevImageAction.setShortcuts(['Left', 'A'])
         prevImageAction.triggered.connect(self.showPrevImage)
 
-        viewMenu.addSeparator()
-
-        nextActionAction = viewMenu.addAction('Next Action')
-        nextActionAction.setShortcut('Down')
-        nextActionAction.triggered.connect(self.showNextAction)
-
-        prevActionAction = viewMenu.addAction('Prev Action')
-        prevActionAction.setShortcut('Up')
-        prevActionAction.triggered.connect(self.showPrevAction)
+        nextImageAction = viewMenu.addAction('Next Image')
+        nextImageAction.setShortcuts(['Right', 'D'])
+        nextImageAction.triggered.connect(self.showNextImage)
 
         viewMenu.addSeparator()
-
-        nextSceneAction = viewMenu.addAction('Next Scene')
-        nextSceneAction.setShortcut('PgDown')
-        nextSceneAction.triggered.connect(self.showNextScene)
 
         prevSceneAction = viewMenu.addAction('Prev Scene')
-        prevSceneAction.setShortcut('PgUp')
+        prevSceneAction.setShortcuts(['Up', 'W'])
         prevSceneAction.triggered.connect(self.showPrevScene)
 
+        nextSceneAction = viewMenu.addAction('Next Scene')
+        nextSceneAction.setShortcuts(['Down', 'S'])
+        nextSceneAction.triggered.connect(self.showNextScene)
+
     def setupToggleMenu(self, editMenu):
-        togglePickAction = editMenu.addAction('Toggle Pick')
-        togglePickAction.setShortcut('Tab')
-        togglePickAction.setAutoRepeat(False)
-        togglePickAction.triggered.connect(self.togglePick)
+        toggleSelectingModeAction = editMenu.addAction('&Selecting Mode')
+        toggleSelectingModeAction.setShortcut('Space')
+        toggleSelectingModeAction.setAutoRepeat(False)
+        toggleSelectingModeAction.setCheckable(True)
+        toggleSelectingModeAction.triggered.connect(self.toggleSelectingMode)
+
+        def update():
+            toggleSelectingModeAction.setChecked(self._selectingMode)
+
+        editMenu.aboutToShow.connect(update)
 
         toggleLoveAction = editMenu.addAction('Toggle Love')
-        toggleLoveAction.setShortcut('Ctrl+Tab')
+        toggleLoveAction.setShortcut('F')
         toggleLoveAction.setAutoRepeat(False)
         toggleLoveAction.triggered.connect(self.toggleLove)
 
     def setupRatingMenu(self, editMenu):
         ratingGroup = QActionGroup(editMenu)
-        for rating in range(1, 5):
+        for rating in range(0, 5):
             ratingAction = editMenu.addAction('Rating %s' % macro.RATING_MAP[rating])
             ratingAction.setShortcut('%d' % rating)
             ratingAction.setAutoRepeat(False)
@@ -297,16 +216,13 @@ class Editor(QWidget, Ui_Editor):
 
         editMenu.addSeparator()
 
-        def setGlobalRating(rating):
-            self._globalRating = rating
-
         ratingGroup = QActionGroup(editMenu)
-        for rating in range(1, 5):
+        for rating in range(0, 5):
             ratingAction = editMenu.addAction('Global Rating %s' % macro.RATING_MAP[rating])
             ratingAction.setShortcut('Ctrl+%d' % rating)
             ratingAction.setAutoRepeat(False)
             ratingAction.setCheckable(True)
-            ratingAction.triggered.connect(lambda _, rating=rating: setGlobalRating(rating))
+            ratingAction.triggered.connect(lambda _, rating=rating: self.setGlobalRating(rating))
             ratingGroup.addAction(ratingAction)
 
             def update(ratingAction=ratingAction, rating=rating):
@@ -337,12 +253,12 @@ class Editor(QWidget, Ui_Editor):
 
     def setupModifyMenu(self, editMenu):
         moveActionForwardAction = editMenu.addAction('Move Action Forward')
-        moveActionForwardAction.setShortcut('Ctrl+Shift+Up')
+        moveActionForwardAction.setShortcut('Ctrl+Shift+Left')
         moveActionForwardAction.setAutoRepeat(False)
         moveActionForwardAction.triggered.connect(self.moveActionForward)
 
         moveActionBackwardAction = editMenu.addAction('Move Action Backward')
-        moveActionBackwardAction.setShortcut('Ctrl+Shift+Down')
+        moveActionBackwardAction.setShortcut('Ctrl+Shift+Right')
         moveActionBackwardAction.setAutoRepeat(False)
         moveActionBackwardAction.triggered.connect(self.moveActionBackward)
 
@@ -354,12 +270,12 @@ class Editor(QWidget, Ui_Editor):
         editMenu.addSeparator()
 
         moveSceneForwardAction = editMenu.addAction('Move Scene Forward')
-        moveSceneForwardAction.setShortcut('Ctrl+Shift+PgUp')
+        moveSceneForwardAction.setShortcut('Ctrl+Shift+Up')
         moveSceneForwardAction.setAutoRepeat(False)
         moveSceneForwardAction.triggered.connect(self.moveSceneForward)
 
         moveSceneBackwardAction = editMenu.addAction('Move Scene Backward')
-        moveSceneBackwardAction.setShortcut('Ctrl+Shift+PgDown')
+        moveSceneBackwardAction.setShortcut('Ctrl+Shift+Down')
         moveSceneBackwardAction.setAutoRepeat(False)
         moveSceneBackwardAction.triggered.connect(self.moveSceneBackward)
 
@@ -378,129 +294,162 @@ class Editor(QWidget, Ui_Editor):
         mergeSceneAction.setAutoRepeat(False)
         mergeSceneAction.triggered.connect(self.mergeScene)
 
-    def setViewMode(self, viewMode):
-        if self._viewMode == viewMode:
-            if self._viewMode == ViewMode.SELECT:
-                self._viewMode = self._lastViewMode
-                self._lastViewMode = ViewMode.SELECT
-                self._update()
+    @property
+    def curScene(self):
+        return self._database and self._database.getScene(self._sidx)
+
+    @property
+    def curSceneIdx(self):
+        return self._sidx
+
+    @property
+    def curAction(self):
+        scene = self.curScene
+        if not scene:
+            return None
+        if self._viewMode == ViewMode.PICK:
+            return scene.getAction(self._pidx)
+        elif self._viewMode == ViewMode.LOVE:
+            return scene.getLoveAction(self._lidx)
+        return None
+
+    @property
+    def curImage(self):
+        action = self.curAction
+        if not action:
+            return
+        if self._selectingMode:
+            return action.getImage(self._iidx)
         else:
-            self._lastViewMode = self._viewMode
-            self._viewMode = viewMode
+            if self._viewMode == ViewMode.PICK:
+                return action.getPick()
+            elif self._viewMode == ViewMode.LOVE:
+                return action.getPick()
+        return None
+
+    def isInvalid(self):
+        return self.curScene is None
+
+    def setViewMode(self, viewMode):
+        if self._selectingMode:
+            return
+        self._viewMode = viewMode
+        self._update()
+
+    def switchViewMode(self):
+        if self._selectingMode:
+            self._selectingMode = False
             self._update()
+            return
+        if self._viewMode == ViewMode.PICK:
+            self.setViewMode(ViewMode.LOVE)
+        elif self._viewMode == ViewMode.LOVE:
+            self.setViewMode(ViewMode.PICK)
+        else:
+            print('Invalid view mode')
 
     def setLockViewMode(self, viewMode):
+        if self._selectingMode:
+            return
         self._lockViewMode = viewMode
         self.setViewMode(viewMode)
 
-    def selectImage(self):
-        if self._viewMode == ViewMode.SELECT:
-            self.setViewMode(self._lastViewMode)
-        else:
-            if self.curImage is not None:
-                self._aidx, self._iidx = self.curScene.indexImage(self.curImage)
-            self.setViewMode(ViewMode.SELECT)
-
-    def showNextImage(self):
-        if self.isInvalid():
-            return
-        action = self.curAction
-        if self._viewMode == ViewMode.SELECT:
-            self._iidx = action.normalizeImageIdx(self._iidx + 1)
-        elif self._viewMode == ViewMode.PICK:
-            self._pidx = action.normalizeImageIdx(self._pidx + 1, loop=True)
-            if self._pidx == 0:
-                self.showHomeFlag()
+    def switchLockViewMode(self):
+        if self._lockViewMode == ViewMode.PICK:
+            self.setLockViewMode(ViewMode.LOVE)
         elif self._viewMode == ViewMode.LOVE:
-            self._lidx = action.normalizeImageIdx(self._lidx + 1, loop=True)
-            if self._lidx == 0:
-                self.showHomeFlag()
+            self.setLockViewMode(ViewMode.PICK)
+        else:
+            print('Invalid view mode')
+
+    def toggleSelectingMode(self):
+        if self.isInvalid() or self.curImage is None:
+            return
+        if self._selectingMode:
+            if self._viewMode == ViewMode.PICK:
+                self.curAction.setPick(self.curImage)
+            elif self._viewMode == ViewMode.LOVE:
+                self.curAction.setPick(self.curImage)
+            else:
+                print('Invalid view mode')
+        else:
+            self._iidx = self.curAction.indexImage(self.curImage)
+        self._selectingMode = not self._selectingMode
         self._update()
 
     def showPrevImage(self):
         if self.isInvalid():
             return
-        action = self.curAction
-        if self._viewMode == ViewMode.SELECT:
-            self._iidx = action.normalizeImageIdx(self._iidx - 1)
-        elif self._viewMode == ViewMode.PICK:
-            self._pidx = action.normalizeImageIdx(self._pidx - 1, loop=True)
-            if self._pidx == 0:
-                self.showHomeFlag()
-        elif self._viewMode == ViewMode.LOVE:
-            self._lidx = action.normalizeImageIdx(self._lidx - 1, loop=True)
-            if self._lidx == 0:
-                self.showHomeFlag()
-        self._update()
-
-    def showNextAction(self):
-        if self.isInvalid() or self._viewMode != ViewMode.SELECT:
-            return
-        self._iidx = 0
-        self._aidx = self.curScene.normalizeActionIdx(self._aidx + 1, loop=True)
-        if self._aidx == 0:
-            self.showHomeFlag()
-        self._update()
-
-    def showPrevAction(self):
-        if self.isInvalid() or self._viewMode != ViewMode.SELECT:
-            return
-        self._iidx = 0
-        self._aidx = self.curScene.normalizeActionIdx(self._aidx - 1, loop=True)
-        if self._aidx == 0:
-            self.showHomeFlag()
-        self._update()
-
-    def showNextScene(self, needCheck=True):
-        if needCheck and self.isInvalid():
-            return
-        self._viewMode = self._lockViewMode
-        self._sidx = self._database.normalizeSceneIdx(self._sidx + 1)
-        self._aidx = 0
-        self._iidx = 0
-        self._pidx = 0
-        self._lidx = 0
-        self._imageCtrlHandler.stopDrawing()
-        self.saveDatabase()
-        self._update()
-
-    def showPrevScene(self, needCheck=True):
-        if needCheck and self.isInvalid():
-            return
-        self._viewMode = self._lockViewMode
-        self._sidx = self._database.normalizeSceneIdx(self._sidx - 1)
-        self._aidx = 0
-        self._iidx = 0
-        self._pidx = 0
-        self._lidx = 0
-        self._imageCtrlHandler.stopDrawing()
-        self.saveDatabase()
-        self._update()
-
-    def togglePick(self):
-        if self.isInvalid() or self.curImage is None:
-            return
-        image = self.curImage
-        pick = self.curPick
-        if pick.hasImage(image):
-            pick.delImage(image)
-            self._pidx = pick.normalizeImageIdx(self._pidx)
+        if self._selectingMode:
+            self._iidx = self.curAction.normalizeImageIdx(self._iidx - 1)
         else:
-            pick.addImage(image)
+            if self._viewMode == ViewMode.PICK:
+                self._pidx = self.curScene.normalizeActionIdx(self._pidx - 1, loop=True)
+                if self._pidx == 0:
+                    self.showHomeFlag()
+            elif self._viewMode == ViewMode.LOVE:
+                self._lidx = self.curScene.normalizeLoveActionIdx(self._lidx - 1, loop=True)
+                if self._lidx == 0:
+                    self.showHomeFlag()
+            else:
+                print('Invalid view mode')
+        self._update()
+
+    def showNextImage(self):
+        if self.isInvalid():
+            return
+        if self._selectingMode:
+            self._iidx = self.curAction.normalizeImageIdx(self._iidx + 1)
+        else:
+            if self._viewMode == ViewMode.PICK:
+                self._pidx = self.curScene.normalizeActionIdx(self._pidx + 1, loop=True)
+                if self._pidx == 0:
+                    self.showHomeFlag()
+            elif self._viewMode == ViewMode.LOVE:
+                self._lidx = self.curScene.normalizeLoveActionIdx(self._lidx + 1, loop=True)
+                if self._lidx == 0:
+                    self.showHomeFlag()
+            else:
+                print('Invalid view mode')
+        self._update()
+
+    def showPrevScene(self):
+        if self.isInvalid():
+            return
+        self._viewMode = self._lockViewMode
+        self._selectingMode = False
+        self._sidx = self._database.normalizeSceneIdx(self._sidx - 1)
+        self._iidx = 0
+        self._pidx = 0
+        self._lidx = 0
+        self._imageCtrlHandler.stopDrawing()
+        self.saveDatabase()
+        self._update()
+
+    def showNextScene(self):
+        if self.isInvalid():
+            return
+        self._viewMode = self._lockViewMode
+        self._selectingMode = False
+        self._sidx = self._database.normalizeSceneIdx(self._sidx + 1)
+        self._iidx = 0
+        self._pidx = 0
+        self._lidx = 0
+        self._imageCtrlHandler.stopDrawing()
+        self.saveDatabase()
         self._update()
 
     def toggleLove(self):
-        if self.isInvalid() or self.curImage is None:
+        if self.isInvalid() or self.curImage is None or self._selectingMode:
             return
-        image = self.curImage
-        love = self.curLove
-        if love.hasImage(image):
-            love.delImage(image)
-            self._lidx = love.normalizeImageIdx(self._lidx)
+        action = self.curAction
+        if action.isLove():
+            action.setLove(False)
         else:
-            love.addImage(image)
-            if self.curScene.getRawRating() == 0:
+            action.setLove(True)
+            if self.curScene.getRawRating() < 0:
                 self.curScene.setRating(self._globalRating)
+        self._lidx = self.curScene.normalizeLoveActionIdx(self._lidx)
         self._update()
 
     def setRating(self, rating):
@@ -509,55 +458,66 @@ class Editor(QWidget, Ui_Editor):
         self.curScene.setRating(rating)
         self._update()
 
+    def setGlobalRating(self, rating):
+        self._globalRating = rating
+        self.setRating(rating)
+
     def repickScene(self, faceNum, debug):
         if self.isInvalid():
             return
         from tools.picker import repickScene
-        images = self.curScene.getImages()
-        sceneProto = repickScene(images, faceNum, debug)
-        sceneProto['love'] = self.curLove.serialize()
-        sceneProto['rating'] = self.curScene.getRating()
-        self.curScene.load(sceneProto)
-        self._aidx = 0
-        self._iidx = 0
-        self._pidx = 0
-        self._lidx = 0
-        self._update()
+        self._repickSceneWithFunction(lambda images: repickScene(images, faceNum, debug))
 
     def repickSceneWithFaces(self, facesProto):
         if self.isInvalid():
             return
         from tools.picker import repickSceneWithFaces
-        images = self.curScene.getImages()
-        sceneProto = repickSceneWithFaces(images, facesProto)
-        sceneProto['love'] = self.curLove.serialize()
-        sceneProto['rating'] = self.curScene.getRating()
+        self._repickSceneWithFunction(lambda images: repickSceneWithFaces(images, facesProto))
+
+    def _repickSceneWithFunction(self, pickFunc):
+        rating = self.curScene.getRawRating()
+        images = []
+        loves = []
+        for action in self.curScene.getActions():
+            images += action.getImages()
+            if action.isLove():
+                loves.append(action.getPick())
+        sceneProto = pickFunc(images)
         self.curScene.load(sceneProto)
-        self._aidx = 0
+        self.curScene.setRating(rating)
+        for love in loves:
+            for action in self.curScene.getActions():
+                if action.hasImage(love):
+                    action.setLove(True)
+                    action.setPick(love)
+        self._selectingMode = False
         self._iidx = 0
         self._pidx = 0
         self._lidx = 0
         self._update()
 
     def moveActionForward(self):
-        if self.isInvalid() or self._viewMode != ViewMode.SELECT:
+        if self.isInvalid() or self._viewMode != ViewMode.PICK or self._selectingMode:
             return
-        self.curScene.moveActionForward(self.curAction)
-        self._aidx = self.curScene.normalizeActionIdx(self._aidx - 1)
+        action = self.curScene.getAction(self._pidx)
+        self.curScene.moveActionForward(action)
+        self._pidx = self.curScene.normalizeActionIdx(self._pidx - 1)
         self._update()
 
     def moveActionBackward(self):
-        if self.isInvalid() or self._viewMode != ViewMode.SELECT:
+        if self.isInvalid() or self._viewMode != ViewMode.PICK or self._selectingMode:
             return
-        self.curScene.moveActionBackward(self.curAction)
-        self._aidx = self.curScene.normalizeActionIdx(self._aidx + 1)
+        action = self.curScene.getAction(self._pidx)
+        self.curScene.moveActionBackward(action)
+        self._pidx = self.curScene.normalizeActionIdx(self._pidx + 1)
         self._update()
 
     def deleteAction(self):
-        if self.isInvalid() or self._viewMode != ViewMode.SELECT:
+        if self.isInvalid() or self._viewMode != ViewMode.PICK or self._selectingMode:
             return
-        if self.curScene.delAction(self.curAction):
-            self._aidx = self.curScene.normalizeActionIdx(self._aidx)
+        action = self.curScene.getAction(self._pidx)
+        if self.curScene.delAction(action):
+            self._pidx = self.curScene.normalizeActionIdx(self._pidx)
             self._update()
         else:
             self.deleteScene()
@@ -580,20 +540,32 @@ class Editor(QWidget, Ui_Editor):
         if self.isInvalid():
             return
         self._database.delScene(self.curScene)
-        self._sidx = self._database.normalizeSceneIdx(self._sidx)
-        self._update()
+        self._updateCurScene()
 
     def splitScene(self):
-        if self.isInvalid() or self._viewMode != ViewMode.SELECT:
+        if self.isInvalid() or self._viewMode != ViewMode.PICK or self._selectingMode:
             return
-        if self._database.splitScene(self.curScene, self.curAction):
-            self.showNextScene(needCheck=False)
+        action = self.curScene.getAction(self._pidx)
+        if self._database.splitScene(self.curScene, action):
+            self._sidx += 1
+            self._updateCurScene()
 
     def mergeScene(self):
         if self.isInvalid():
             return
         if self._database.mergeScene(self.curScene):
-            self.showPrevScene(needCheck=False)
+            self._sidx -= 1
+            self._updateCurScene()
+
+    def _updateCurScene(self):
+        self._viewMode = self._lockViewMode
+        self._selectingMode = False
+        self._sidx = self._database.normalizeSceneIdx(self._sidx)
+        self._iidx = 0
+        self._pidx = 0
+        self._lidx = 0
+        self._imageCtrlHandler.stopDrawing()
+        self._update()
 
     def saveDatabase(self):
         self._saveCounter += 1
@@ -610,54 +582,32 @@ class Editor(QWidget, Ui_Editor):
         QTimer.singleShot(200, lambda: self.home.setVisible(False))
 
     def _update(self):
+        self._updateWindowTitle()
+        self._updateImageCtrl()
         self._updateActionNum()
         self._updateFaceCtrls()
-        self._updateImageCtrl()
-        self._updateWindowTitle()
 
-    def _updateActionNum(self):
-        if self.isInvalid() or self.curImage is None:
-            self.actionNum.setText('')
-            return
-        aidx, _ = self.curScene.indexImage(self.curImage)
-        self.actionNum.setText('%d/%d' % (aidx + 1, self.curScene.getActionNum()))
-
-    def _updateFaceCtrls(self):
+    def _updateWindowTitle(self):
+        from PyQt5.QtCore import QCoreApplication
+        applicationName = QCoreApplication.applicationName()
         if self.isInvalid():
-            self.faceFrame.setVisible(False)
+            self.window().setWindowTitle(applicationName)
             return
-        self.faceContainer.setVisible(True)
-
-        for ctrl in self._faceCtrls:
-            ctrl.setVisible(False)
-
-        actionIdx = 0
-        for idx in range(self.curAction.getImageNum()):
-            if idx >= len(self._faceCtrls):
-                ctrl = Face(self.faceContainer)
-                self.faceLayout.addWidget(ctrl)
-                self._faceCtrls.append(ctrl)
-            else:
-                ctrl = self._faceCtrls[idx]
-                ctrl.setVisible(True)
-            image = self.curAction.getImage(idx)
-            ctrl.setFace(image, self.curScene.getFaces())
-            if self.curImage == image:
-                ctrl.selected(True)
-            else:
-                ctrl.selected(False)
-            ctrl.star.setVisible(self.curPick.hasImage(image))
-            ctrl.circle.setVisible(self.curLove.hasImage(image))
-            if self._viewMode != ViewMode.SELECT:
-                action = self.curScene.getAction(actionIdx)
-                while action.indexImage(image) is None:
-                    actionIdx += 1
-                    action = self.curScene.getAction(actionIdx)
-                ctrl.starNum.setText(str(action.getImageNum()))
-            else:
-                ctrl.starNum.setText('')
-
-        self._updateScrollBar()
+        viewModeStr = ''
+        if self._viewMode == ViewMode.PICK:
+            viewModeStr = 'PICK'
+        elif self._viewMode == ViewMode.LOVE:
+            viewModeStr = 'LOVE'
+        if self._selectingMode:
+            selectingStr = 'selecting'
+        else:
+            selectingStr = ''
+        self.window().setWindowTitle(
+            u'%s 《%s》[%d/%d] %s %s' % (
+                applicationName, self._database.getCGName(), self._sidx + 1,
+                self._database.getSceneNum(), viewModeStr, selectingStr
+            )
+        )
 
     def _updateImageCtrl(self):
         if self.isInvalid():
@@ -675,38 +625,99 @@ class Editor(QWidget, Ui_Editor):
         self.img.setPixmap(pixmap)
         self.rating.setText(macro.RATING_MAP[self.curScene.getRating()])
 
-    def _updateWindowTitle(self):
-        from PyQt5.QtCore import QCoreApplication
-        applicationName = QCoreApplication.applicationName()
-        if self.isInvalid():
-            self.window().setWindowTitle(applicationName)
+    def _updateActionNum(self):
+        if self.isInvalid() or self.curImage is None:
+            self.actionNum.setText('')
             return
-        if self._viewMode == ViewMode.SELECT:
-            viewModeStr = 'SELECT'
-        elif self._viewMode == ViewMode.PICK:
-            viewModeStr = 'PICK'
-        elif self._viewMode == ViewMode.LOVE:
-            viewModeStr = 'LOVE'
-        self.window().setWindowTitle(
-            u'%s 《%s》[%d/%d] %s' % (
-                applicationName, self._database.getCGName(), self._sidx + 1,
-                self._database.getSceneNum(), viewModeStr
-            )
-        )
+        if self._selectingMode:
+            self.actionNum.setText('%d/%d SELECT' % (self._iidx + 1, self.curAction.getImageNum()))
+        else:
+            if self._viewMode == ViewMode.PICK:
+                self.actionNum.setText(
+                    '%d/%d PICK' % (self._pidx + 1, self.curScene.getActionNum())
+                )
+            elif self._viewMode == ViewMode.LOVE:
+                self.actionNum.setText(
+                    '%d/%d LOVE' % (self._lidx + 1, self.curScene.getLoveActionNum())
+                )
+            else:
+                print('Invalid view mode')
+
+    def _updateFaceCtrls(self):
+        if self.isInvalid():
+            self.faceFrame.setVisible(False)
+            return
+        self.faceFrame.setVisible(True)
+
+        for ctrl in self._faceCtrls:
+            ctrl.setVisible(False)
+
+        if self._selectingMode:
+            self._updateImageFaceCtrls()
+        else:
+            if self._viewMode == ViewMode.PICK:
+                self._updatePickFaceCtrls()
+            elif self._viewMode == ViewMode.LOVE:
+                self._updateLoveFaceCtrls()
+            else:
+                print('Invalid view mode')
+
+        self._updateScrollBar()
+
+    def _getFaceCtrl(self, idx):
+        ctrl = None
+        if idx == len(self._faceCtrls):
+            ctrl = Face(self.faceContainer)
+            self.faceLayout.addWidget(ctrl)
+            self._faceCtrls.append(ctrl)
+        elif idx < len(self._faceCtrls):
+            ctrl = self._faceCtrls[idx]
+            ctrl.setVisible(True)
+        else:
+            print('Get face ctrl out of index')
+        return ctrl
+
+    def _updatePickFaceCtrls(self):
+        for idx, action in enumerate(self.curScene.getActions()):
+            ctrl = self._getFaceCtrl(idx)
+            ctrl.setFace(action.getPick(), self.curScene.getFaces())
+            ctrl.selected(self._pidx == idx)
+            ctrl.star.setVisible(action.isLove())
+            ctrl.circle.setVisible(False)
+            ctrl.setText(str(action.getImageNum()))
+
+    def _updateLoveFaceCtrls(self):
+        for idx, action in enumerate(self.curScene.getLoveActions()):
+            ctrl = self._getFaceCtrl(idx)
+            ctrl.setFace(action.getPick(), self.curScene.getFaces())
+            ctrl.selected(self._lidx == idx)
+            ctrl.star.setVisible(action.isLove())
+            ctrl.circle.setVisible(False)
+            ctrl.setText(str(action.getImageNum()))
+
+    def _updateImageFaceCtrls(self):
+        selectedImage = self.curAction.getPick()
+        for idx, image in enumerate(self.curAction.getImages()):
+            ctrl = self._getFaceCtrl(idx)
+            ctrl.setFace(image, self.curScene.getFaces())
+            ctrl.selected(self._iidx == idx)
+            ctrl.star.setVisible(False)
+            ctrl.circle.setVisible(selectedImage == image)
+            ctrl.setText('')
 
     def _onFaceContainerResize(self, event):
         self._updateScrollBar()
 
     def _updateScrollBar(self):
-        selected_ctrl = None
+        selectedCtrl = None
         for ctrl in self._faceCtrls:
             if ctrl.getImage() == self.curImage:
-                selected_ctrl = ctrl
+                selectedCtrl = ctrl
                 break
-        if selected_ctrl is None:
+        if selectedCtrl is None:
             return
         hbar = self.faceFrame.horizontalScrollBar()
-        hbarVal = selected_ctrl.pos().x() - self.faceFrame.width() / 2 + selected_ctrl.width() / 2
+        hbarVal = selectedCtrl.pos().x() - self.faceFrame.width() / 2 + selectedCtrl.width() / 2
         hbar.setValue(hbarVal)
 
 

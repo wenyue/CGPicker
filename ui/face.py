@@ -41,7 +41,6 @@ class Face(QWidget, Ui_Face):
     def __init__(self, *args, **kwargs):
         super(Face, self).__init__(*args, **kwargs)
         self.setupUi(self)
-        self.starNum.setStyleSheet("font-size:20px")
 
         self._thread = None
         self._image = None
@@ -53,10 +52,10 @@ class Face(QWidget, Ui_Face):
 
     def selected(self, isSelected):
         if isSelected:
-            self.setEnabled(True)
+            self.img.setEnabled(True)
             self.img.setStyleSheet('border: 5px solid red')
         else:
-            self.setEnabled(False)
+            self.img.setEnabled(False)
             self.img.setStyleSheet('')
 
     def isSameFace(self, image, faces):
@@ -90,6 +89,10 @@ class Face(QWidget, Ui_Face):
         self._thread = LoadFaceThread(image, faces, faceSize)
         self._thread.finished.connect(lambda thread=self._thread: self._setFacePixmap(thread))
         self._thread.start()
+
+    def setText(self, text):
+        self.number.setText(text)
+        self.outline.setText(text)
 
     def _setFacePixmap(self, thread):
         if thread != self._thread:

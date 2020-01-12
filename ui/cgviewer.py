@@ -73,12 +73,6 @@ class CGViewer(QMainWindow, Ui_CGViewer):
         editorAction.setCheckable(True)
         editorAction.triggered.connect(self.switchToEditMode)
 
-        toggleWorkModeAction = QAction(self)
-        toggleWorkModeAction.setShortcut('Esc')
-        toggleWorkModeAction.setAutoRepeat(False)
-        toggleWorkModeAction.triggered.connect(self.toggleWorkMode)
-        self.addAction(toggleWorkModeAction)
-
         workModeGroup = QActionGroup(windowMenu)
         workModeGroup.addAction(viewerAction)
         workModeGroup.addAction(editorAction)
@@ -88,6 +82,11 @@ class CGViewer(QMainWindow, Ui_CGViewer):
             editorAction.setChecked(self.editor.isVisible())
 
         windowMenu.aboutToShow.connect(update)
+
+        switchWorkModeAction = windowMenu.addAction('Switch Work Mode')
+        switchWorkModeAction.setShortcut('Esc')
+        switchWorkModeAction.setAutoRepeat(False)
+        switchWorkModeAction.triggered.connect(self.switchWorkMode)
 
         windowMenu.addSeparator()
 
@@ -103,7 +102,7 @@ class CGViewer(QMainWindow, Ui_CGViewer):
         # Editor menus
         self.editor.setupMainMenu(self.menubar)
 
-    def toggleWorkMode(self):
+    def switchWorkMode(self):
         if self.viewer.isVisible():
             self.switchToEditMode()
         else:
