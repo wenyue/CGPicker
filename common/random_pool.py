@@ -99,9 +99,9 @@ class RandomPool(object):
 
 
 class RatingRandomPool(RandomPool):
-    RATING_WEIGHTS = [0, 1, 2, 3, 5]
+    RATING_WEIGHTS = [0, 3, 10, 30, 100]
     DAY_WEIGHT = 1.1
-    DAY_MAX_WEIGHT = 10
+    DAY_MAX_WEIGHT = 0
 
     def __init__(self, root):
         super(RatingRandomPool, self).__init__(root)

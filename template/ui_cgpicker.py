@@ -35,7 +35,7 @@ class Ui_CGPicker(object):
 
     def retranslateUi(self, CGPicker):
         _translate = QtCore.QCoreApplication.translate
-        CGPicker.setWindowTitle(_translate("CGPicker", "MainWindow"))
+        CGPicker.setWindowTitle(_translate("CGPicker", "CGPicker"))
 
 
 if __name__ == "__main__":

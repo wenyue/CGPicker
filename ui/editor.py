@@ -28,8 +28,6 @@ class Editor(QWidget, Ui_Editor):
         self.faceLayout = QHBoxLayout(self.faceContainer)
         self.faceLayout.setSpacing(3)
         self.home.setVisible(False)
-        self.actionNum.setStyleSheet('font-size:30px')
-        self.actionNum.setText('number')
 
         self._viewMenu = None
         self._editMenu = None

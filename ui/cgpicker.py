@@ -127,11 +127,13 @@ class CGPicker(QMainWindow, Ui_CGPicker):
             self.createLoading(lambda: pickCG(CGRoot))
 
             pickPath = os.path.join(os.path.dirname(CGRoot), 'Pick')
+            picks = []
             if os.path.exists(pickPath):
-                picks = os.listdir(pickPath)
+                picks = [os.path.basename(filename) for filename in os.listdir(pickPath)]
             lovePath = os.path.join(os.path.dirname(CGRoot), 'Love')
+            loves = []
             if os.path.exists(lovePath):
-                loves = os.listdir(lovePath)
+                loves = [os.path.basename(filename) for filename in os.listdir(lovePath)]
             rating = 1
             dirname = os.path.dirname(CGRoot)
             if dirname.endswith(u'[☆]'):
@@ -148,10 +150,10 @@ class CGPicker(QMainWindow, Ui_CGPicker):
             for sceneProto in proto:
                 for action in sceneProto['actions']:
                     for image in action['images']:
-                        if image in loves:
+                        if os.path.basename(image) in loves:
                             action['love'] = True
                             action['pick'] = image
-                        if not action['love'] and image in picks:
+                        if not action['love'] and os.path.basename(image) in picks:
                             action['pick'] = image
                 sceneProto['rating'] = rating
             with open(os.path.join(CGRoot, macro.DATABASE_FILE), 'w') as f:
@@ -182,10 +184,12 @@ class CGPicker(QMainWindow, Ui_CGPicker):
                 newCGRoot = newCGRoot.replace(u'[☆]', '')
             elif newCGRoot.endswith(u'[☆☆]'):
                 newCGRoot = newCGRoot.replace(u'[☆☆]', '')
-            if newCGRoot.endswith(u'[☆☆☆]'):
+            elif newCGRoot.endswith(u'[☆☆☆]'):
                 newCGRoot = newCGRoot.replace(u'[☆☆☆]', '')
-            if newCGRoot.endswith(u'[❤]'):
+            elif newCGRoot.endswith(u'[❤]'):
                 newCGRoot = newCGRoot.replace(u'[❤]', '')
+            else:
+                newCGRoot = newCGRoot + '[BACK]'
         #########################
         if (os.path.isdir(newCGRoot) and os.path.samefile(CGRoot, newCGRoot)):
             return
@@ -194,7 +198,7 @@ class CGPicker(QMainWindow, Ui_CGPicker):
 
         config.set('path', 'input', newCGRoot)
         self._database.load(newCGRoot)
-        self.editor.refresh(self.editor.getSceneIdx())
+        self.editor.refresh(self.editor.curSceneIdx)
 
     def formatImageNames(self):
         from tools.name_formater import formatImageNames

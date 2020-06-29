@@ -35,7 +35,7 @@ class Ui_CGViewer(object):
 
     def retranslateUi(self, CGViewer):
         _translate = QtCore.QCoreApplication.translate
-        CGViewer.setWindowTitle(_translate("CGViewer", "MainWindow"))
+        CGViewer.setWindowTitle(_translate("CGViewer", "CGViewer"))
 
 
 if __name__ == "__main__":
